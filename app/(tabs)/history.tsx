@@ -105,6 +105,26 @@ function buildDayPoints(dates: Date[], recordMap: Map<string, WaterDayRecord>, f
   });
 }
 
+function buildCurrentMonthWeekPoints(recordMap: Map<string, WaterDayRecord>, fallbackGoal: number): TrendPoint[] {
+  const dayPoints = buildDayPoints(getMonthDates(), recordMap, fallbackGoal);
+  const weekPoints: TrendPoint[] = [];
+
+  for (let index = 0; index < dayPoints.length; index += 7) {
+    const week = dayPoints.slice(index, index + 7);
+    const summary = sumPoints(week);
+    const weekNumber = Math.floor(index / 7) + 1;
+
+    weekPoints.push({
+      key: `week-${weekNumber}`,
+      label: `第${weekNumber}周`,
+      total: summary.total,
+      goal: summary.goal,
+    });
+  }
+
+  return weekPoints;
+}
+
 function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number): TrendPoint[] {
   const months = getYearMonths();
 
@@ -130,7 +150,7 @@ function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number): Tren
 
 function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number) {
   const recordMap = new Map(records.map((record) => [record.dateKey, record]));
-  const monthPoints = buildDayPoints(getMonthDates(), recordMap, fallbackGoal);
+  const monthWeekPoints = buildCurrentMonthWeekPoints(recordMap, fallbackGoal);
 
   if (mode === 'day') {
     const points = buildDayPoints(getRecentDates(7), recordMap, fallbackGoal);
@@ -156,9 +176,9 @@ function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: 
   if (mode === 'month') {
     return {
       title: '本月汇总',
-      trendTitle: '本月每日趋势',
-      points: monthPoints,
-      summary: sumPoints(monthPoints),
+      trendTitle: '本月每周的趋势',
+      points: monthWeekPoints,
+      summary: sumPoints(monthWeekPoints),
     };
   }
 
