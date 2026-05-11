@@ -80,7 +80,7 @@ function formatDateRange(startDate: Date, endDate: Date): string {
   const start = formatFullDayLabel(startDate);
   const end = formatFullDayLabel(endDate);
 
-  return start === end ? start : `${start}-${end}`;
+  return start === end ? start : `${start} - ${end}`;
 }
 
 function formatDiff(value: number): string {
@@ -325,20 +325,23 @@ export default function HistoryScreen() {
 
       <View style={styles.summaryCard}>
         <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderCopy}>
+          <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>{period.title}</Text>
-            <Text style={styles.cardRange}>{period.rangeLabel}</Text>
-          </View>
-          <View style={[
-            styles.diffPill,
-            period.summary.diff >= 0 && styles.diffPillGood,
-          ]}>
-            <Text style={[
-              styles.diffPillText,
-              period.summary.diff >= 0 && styles.diffPillTextGood,
+            <View style={[
+              styles.diffPill,
+              period.summary.diff >= 0 && styles.diffPillGood,
             ]}>
-              {formatDiff(period.summary.diff)}
-            </Text>
+              <Text style={[
+                styles.diffPillText,
+                period.summary.diff >= 0 && styles.diffPillTextGood,
+              ]}>
+                {formatDiff(period.summary.diff)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.dateBadge}>
+            <Feather name="calendar" size={13} color={Theme.colors.primary} />
+            <Text style={styles.dateBadgeText}>{period.rangeLabel}</Text>
           </View>
         </View>
 
@@ -368,11 +371,14 @@ export default function HistoryScreen() {
 
       <View style={styles.chartCard}>
         <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderCopy}>
+          <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>{period.trendTitle}</Text>
-            <Text style={styles.cardRange}>{period.trendRangeLabel}</Text>
+            <Feather name="bar-chart-2" size={17} color={Theme.colors.textSecondary} />
           </View>
-          <Feather name="bar-chart-2" size={17} color={Theme.colors.textSecondary} />
+          <View style={styles.dateBadge}>
+            <Feather name="calendar" size={13} color={Theme.colors.primary} />
+            <Text style={styles.dateBadgeText}>{period.trendRangeLabel}</Text>
+          </View>
         </View>
 
         {period.points.length > 0 ? (
@@ -414,7 +420,11 @@ export default function HistoryScreen() {
             <View key={record.dateKey} style={styles.dayRow}>
               <View>
                 <Text style={styles.dayTitle}>{formatDayLabel(parseDateKey(record.dateKey))}</Text>
-                <Text style={styles.dayMeta}>00:00-23:59 · {record.logs.length} 次记录</Text>
+                <View style={styles.dayMetaRow}>
+                  <Text style={styles.dayMeta}>全天 · 00:00-23:59</Text>
+                  <View style={styles.dayDot} />
+                  <Text style={styles.dayMeta}>{record.logs.length} 次记录</Text>
+                </View>
               </View>
               <View style={styles.dayValueGroup}>
                 <Text style={styles.dayValue}>{record.total} ml</Text>
@@ -522,27 +532,37 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   cardHeader: {
+    gap: 9,
+    marginBottom: 14,
+  },
+  cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 12,
-  },
-  cardHeaderCopy: {
-    flex: 1,
   },
   cardTitle: {
+    flex: 1,
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 16,
     lineHeight: 22,
   },
-  cardRange: {
-    color: Theme.colors.textSecondary,
+  dateBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F8EEE7',
+    borderRadius: Theme.radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  dateBadgeText: {
+    color: Theme.colors.primary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
+    lineHeight: 16,
   },
   diffPill: {
     backgroundColor: '#F8EEE7',
@@ -690,7 +710,18 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 17,
+  },
+  dayMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 2,
+  },
+  dayDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: Theme.colors.border,
   },
   dayValueGroup: {
     alignItems: 'flex-end',
