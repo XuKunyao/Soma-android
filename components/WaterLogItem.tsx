@@ -11,7 +11,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -24,6 +26,8 @@ interface WaterLogItemProps {
   amount: number;       // 饮水量 (ml)
   timestamp: number;    // 时间戳 (ms)
   onDelete?: () => void;
+  onOpen?: (swipeable: SwipeableMethods | null) => void;
+  onPressItem?: () => void;
 }
 
 /** 将时间戳格式化为 "14:30" 格式 */
@@ -90,13 +94,21 @@ function DeleteAction({
   );
 }
 
-export function WaterLogItem({ amount, timestamp, onDelete }: WaterLogItemProps) {
+export function WaterLogItem({
+  amount,
+  timestamp,
+  onDelete,
+  onOpen,
+  onPressItem,
+}: WaterLogItemProps) {
+  const swipeableRef = React.useRef<SwipeableMethods>(null);
   const renderRightActions = (progress: SharedValue<number>) => (
     <DeleteAction progress={progress} onDelete={onDelete} />
   );
 
   return (
     <ReanimatedSwipeable
+      ref={swipeableRef}
       friction={2.05}
       rightThreshold={40}
       overshootRight
@@ -108,8 +120,10 @@ export function WaterLogItem({ amount, timestamp, onDelete }: WaterLogItemProps)
       }}
       renderRightActions={renderRightActions}
       containerStyle={styles.swipeContainer}
+      onSwipeableOpen={() => onOpen?.(swipeableRef.current)}
     >
       <Pressable
+        onPress={onPressItem}
         style={({ pressed }) => [
           styles.container,
           pressed && styles.pressed,

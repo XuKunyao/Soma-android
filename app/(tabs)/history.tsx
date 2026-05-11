@@ -32,6 +32,19 @@ interface TrendPoint {
   goal: number;
 }
 
+interface PeriodData {
+  title: string;
+  rangeLabel: string;
+  trendTitle: string;
+  trendRangeLabel: string;
+  points: TrendPoint[];
+  summary: {
+    total: number;
+    goal: number;
+    diff: number;
+  };
+}
+
 const PERIODS: { label: string; value: PeriodMode }[] = [
   { label: '日', value: 'day' },
   { label: '周', value: 'week' },
@@ -57,6 +70,17 @@ function addDays(date: Date, days: number): Date {
 
 function formatDayLabel(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function formatFullDayLabel(date: Date): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function formatDateRange(startDate: Date, endDate: Date): string {
+  const start = formatFullDayLabel(startDate);
+  const end = formatFullDayLabel(endDate);
+
+  return start === end ? start : `${start}-${end}`;
 }
 
 function formatDiff(value: number): string {
@@ -116,7 +140,7 @@ function buildCurrentMonthWeekPoints(recordMap: Map<string, WaterDayRecord>, fal
 
     weekPoints.push({
       key: `week-${weekNumber}`,
-      label: `第${weekNumber}周`,
+      label: `${week[0].label}-${week[week.length - 1].label}`,
       total: summary.total,
       goal: summary.goal,
     });
@@ -148,26 +172,35 @@ function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number): Tren
   });
 }
 
-function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number) {
+function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number): PeriodData {
   const recordMap = new Map(records.map((record) => [record.dateKey, record]));
+  const today = parseDateKey(getTodayKey());
+  const recentDates = getRecentDates(7);
+  const recentRange = formatDateRange(recentDates[0], recentDates[recentDates.length - 1]);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const yearStart = new Date(today.getFullYear(), 0, 1);
   const monthWeekPoints = buildCurrentMonthWeekPoints(recordMap, fallbackGoal);
 
   if (mode === 'day') {
-    const points = buildDayPoints(getRecentDates(7), recordMap, fallbackGoal);
+    const points = buildDayPoints(recentDates, recordMap, fallbackGoal);
     const today = points[points.length - 1];
     return {
       title: '今日概览',
+      rangeLabel: `${formatFullDayLabel(parseDateKey(getTodayKey()))} 00:00-23:59`,
       trendTitle: '近 7 天趋势',
+      trendRangeLabel: recentRange,
       points,
       summary: sumPoints([today]),
     };
   }
 
   if (mode === 'week') {
-    const points = buildDayPoints(getRecentDates(7), recordMap, fallbackGoal);
+    const points = buildDayPoints(recentDates, recordMap, fallbackGoal);
     return {
       title: '近 7 天',
+      rangeLabel: recentRange,
       trendTitle: '每日完成趋势',
+      trendRangeLabel: recentRange,
       points,
       summary: sumPoints(points),
     };
@@ -176,7 +209,9 @@ function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: 
   if (mode === 'month') {
     return {
       title: '本月汇总',
+      rangeLabel: formatDateRange(monthStart, today),
       trendTitle: '本月每周的趋势',
+      trendRangeLabel: formatDateRange(monthStart, today),
       points: monthWeekPoints,
       summary: sumPoints(monthWeekPoints),
     };
@@ -185,7 +220,9 @@ function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: 
   const points = buildMonthPoints(records, fallbackGoal);
   return {
     title: '今年汇总',
+    rangeLabel: formatDateRange(yearStart, today),
     trendTitle: '每月完成趋势',
+    trendRangeLabel: formatDateRange(yearStart, today),
     points,
     summary: sumPoints(points),
   };
@@ -288,7 +325,10 @@ export default function HistoryScreen() {
 
       <View style={styles.summaryCard}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{period.title}</Text>
+          <View style={styles.cardHeaderCopy}>
+            <Text style={styles.cardTitle}>{period.title}</Text>
+            <Text style={styles.cardRange}>{period.rangeLabel}</Text>
+          </View>
           <View style={[
             styles.diffPill,
             period.summary.diff >= 0 && styles.diffPillGood,
@@ -328,7 +368,10 @@ export default function HistoryScreen() {
 
       <View style={styles.chartCard}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{period.trendTitle}</Text>
+          <View style={styles.cardHeaderCopy}>
+            <Text style={styles.cardTitle}>{period.trendTitle}</Text>
+            <Text style={styles.cardRange}>{period.trendRangeLabel}</Text>
+          </View>
           <Feather name="bar-chart-2" size={17} color={Theme.colors.textSecondary} />
         </View>
 
@@ -371,7 +414,7 @@ export default function HistoryScreen() {
             <View key={record.dateKey} style={styles.dayRow}>
               <View>
                 <Text style={styles.dayTitle}>{formatDayLabel(parseDateKey(record.dateKey))}</Text>
-                <Text style={styles.dayMeta}>{record.logs.length} 次记录</Text>
+                <Text style={styles.dayMeta}>00:00-23:59 · {record.logs.length} 次记录</Text>
               </View>
               <View style={styles.dayValueGroup}>
                 <Text style={styles.dayValue}>{record.total} ml</Text>
@@ -485,11 +528,21 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
+  cardHeaderCopy: {
+    flex: 1,
+  },
   cardTitle: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 16,
     lineHeight: 22,
+  },
+  cardRange: {
+    color: Theme.colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
   },
   diffPill: {
     backgroundColor: '#F8EEE7',

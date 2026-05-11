@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Theme } from '@/constants/theme';
 import { useWater } from '@/contexts/WaterContext';
 import { WaterProgress } from '@/components/WaterProgress';
@@ -33,6 +34,20 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { state, addWater, deleteLog } = useWater();
   const { todayLogs, todayTotal, settings, isLoaded } = state;
+  const openLogActionRef = React.useRef<SwipeableMethods | null>(null);
+
+  const closeOpenLogAction = React.useCallback(() => {
+    openLogActionRef.current?.close();
+    openLogActionRef.current = null;
+  }, []);
+
+  const handleLogOpen = React.useCallback((swipeable: SwipeableMethods | null) => {
+    if (openLogActionRef.current && openLogActionRef.current !== swipeable) {
+      openLogActionRef.current.close();
+    }
+
+    openLogActionRef.current = swipeable;
+  }, []);
 
   // 数据加载中时显示空白（启动屏仍然可见）
   if (!isLoaded) {
@@ -44,12 +59,15 @@ export default function HomeScreen() {
       style={[styles.container, { paddingTop: insets.top }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      onScrollBeginDrag={closeOpenLogAction}
     >
       {/* 问候语 */}
-      <GreetingHeader />
+      <View onTouchStart={closeOpenLogAction}>
+        <GreetingHeader />
+      </View>
 
       {/* 圆形进度指示器 */}
-      <View style={styles.progressSection}>
+      <View style={styles.progressSection} onTouchStart={closeOpenLogAction}>
         <WaterProgress current={todayTotal} goal={settings.dailyGoal} />
       </View>
 
@@ -66,7 +84,10 @@ export default function HomeScreen() {
           styles.addButton,
           pressed && styles.addButtonPressed,
         ]}
-        onPress={() => addWater()}
+        onPress={() => {
+          closeOpenLogAction();
+          addWater();
+        }}
       >
         <Feather name="plus" size={19} color={Theme.colors.surface} />
         <Text style={styles.addButtonText}>喝了一杯（{settings.cupSize}ml）</Text>
@@ -75,14 +96,19 @@ export default function HomeScreen() {
       {/* 今日记录 */}
       {todayLogs.length > 0 && (
         <View style={styles.logSection}>
-          <Text style={styles.logTitle}>今日记录</Text>
+          <Text style={styles.logTitle} onPress={closeOpenLogAction}>今日记录</Text>
           <View style={styles.logCard}>
             {todayLogs.map((log) => (
               <WaterLogItem
                 key={log.id}
                 amount={log.amount}
                 timestamp={log.timestamp}
-                onDelete={() => deleteLog(log.id)}
+                onOpen={handleLogOpen}
+                onPressItem={closeOpenLogAction}
+                onDelete={() => {
+                  closeOpenLogAction();
+                  deleteLog(log.id);
+                }}
               />
             ))}
           </View>
@@ -90,7 +116,7 @@ export default function HomeScreen() {
       )}
 
       {/* 底部留白 */}
-      <View style={{ height: 32 }} />
+      <View style={{ height: 32 }} onTouchStart={closeOpenLogAction} />
     </ScrollView>
   );
 }
