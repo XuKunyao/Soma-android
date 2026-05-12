@@ -672,7 +672,10 @@ export default function SettingsScreen() {
 
                 <View style={styles.resultCard}>
                   <View style={styles.resultCopy}>
-                    <Text style={styles.resultTitle}>计算结果</Text>
+                    <Text style={styles.resultTitle}>计算结果：</Text>
+                    <Text style={styles.resultDescription} numberOfLines={1}>
+                      根据你的数据推荐每日饮水量
+                    </Text>
                     <View style={styles.resultValueRow}>
                       <Text style={styles.resultValue}>
                         {isWeightValid ? estimatedDailyGoal : '--'}
@@ -1142,6 +1145,13 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.medium,
     fontSize: 16,
     lineHeight: 21,
+  },
+  resultDescription: {
+    color: Theme.colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
   },
   resultValueRow: {
     flexDirection: 'row',
