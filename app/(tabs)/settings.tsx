@@ -1003,7 +1003,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weightLabel: {
-    color: Theme.colors.text,
+    color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
     lineHeight: 19,
@@ -1021,7 +1021,7 @@ const styles = StyleSheet.create({
   },
   weightInput: {
     flex: 1,
-    color: Theme.colors.text,
+    color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
     paddingVertical: 6,
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   activityTitle: {
-    color: Theme.colors.text,
+    color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 13,
     lineHeight: 17,
@@ -1110,7 +1110,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primaryBorder,
   },
   smallOptionTitle: {
-    color: Theme.colors.text,
+    color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
     lineHeight: 16,
@@ -1192,22 +1192,22 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   resultIllustration: {
-    width: 86,
-    height: 92,
+    width: 112,
+    height: 104,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
   },
   resultVisualSlot: {
-    width: 78,
-    height: 78,
+    width: 108,
+    height: 100,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultImage: {
-    width: 78,
-    height: 78,
+    width: 106,
+    height: 98,
   },
   modalPrimaryButton: {
     minHeight: 48,
