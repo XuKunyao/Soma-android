@@ -74,7 +74,7 @@ export default function HomeScreen() {
       {/* 达标提示 */}
       {todayTotal >= settings.dailyGoal && (
         <Text style={styles.completedText}>
-          今日目标已达成，太棒了
+          今日目标已完成
         </Text>
       )}
 
@@ -132,8 +132,8 @@ const styles = StyleSheet.create({
   },
   progressSection: {
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 24,
+    marginTop: 28,
+    marginBottom: 22,
   },
   completedText: {
     textAlign: 'center',
@@ -146,11 +146,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Theme.colors.primary,
     borderRadius: Theme.radius.button,
-    paddingVertical: 16,
+    minHeight: 54,
+    paddingHorizontal: 18,
     gap: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 30,
   },
   addButtonPressed: {
     backgroundColor: Theme.colors.primaryPressed,
@@ -175,10 +176,10 @@ const styles = StyleSheet.create({
     borderRadius: Theme.radius.card,
     overflow: 'hidden',
     // 极轻阴影 — 相当于 elevation 1dp
-    elevation: 1,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
 });

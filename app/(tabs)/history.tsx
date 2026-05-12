@@ -340,7 +340,7 @@ export default function HistoryScreen() {
             </View>
           </View>
           <View style={styles.dateBadge}>
-            <Feather name="calendar" size={13} color={Theme.colors.primary} />
+            <Feather name="calendar" size={13} color={Theme.colors.textSecondary} />
             <Text style={styles.dateBadgeText}>{period.rangeLabel}</Text>
           </View>
         </View>
@@ -376,7 +376,7 @@ export default function HistoryScreen() {
             <Feather name="bar-chart-2" size={17} color={Theme.colors.textSecondary} />
           </View>
           <View style={styles.dateBadge}>
-            <Feather name="calendar" size={13} color={Theme.colors.primary} />
+            <Feather name="calendar" size={13} color={Theme.colors.textSecondary} />
             <Text style={styles.dateBadgeText}>{period.trendRangeLabel}</Text>
           </View>
         </View>
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   pageTitle: {
-    fontSize: 28,
+    fontSize: Theme.type.pageTitle,
     fontFamily: Theme.fonts.medium,
     color: Theme.colors.text,
     letterSpacing: 0.5,
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: '#EFE9DF',
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: Theme.radius.full,
     padding: 4,
     marginBottom: 16,
@@ -503,33 +503,33 @@ const styles = StyleSheet.create({
     borderRadius: Theme.radius.card,
     padding: 18,
     marginBottom: 14,
-    elevation: 1,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   chartCard: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.card,
     padding: 18,
     marginBottom: 14,
-    elevation: 1,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   listCard: {
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.card,
     padding: 18,
     marginBottom: 8,
-    elevation: 1,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   cardHeader: {
     gap: 9,
@@ -553,25 +553,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F8EEE7',
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: Theme.radius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   dateBadgeText: {
-    color: Theme.colors.primary,
+    color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 16,
   },
   diffPill: {
-    backgroundColor: '#F8EEE7',
+    backgroundColor: Theme.colors.primarySoft,
     borderRadius: Theme.radius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   diffPillGood: {
-    backgroundColor: '#ECF1E8',
+    backgroundColor: Theme.colors.successSoft,
   },
   diffPillText: {
     color: Theme.colors.primary,
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   metricRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: 14,
     marginTop: 16,
     paddingVertical: 12,
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     height: 108,
     width: '100%',
     minWidth: 4,
-    maxWidth: 18,
+    maxWidth: 14,
     justifyContent: 'flex-end',
     alignItems: 'center',
     position: 'relative',
@@ -661,10 +661,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     borderRadius: Theme.radius.full,
-    backgroundColor: '#E8E2D9',
+    backgroundColor: Theme.colors.border,
   },
   totalBar: {
-    width: '78%',
+    width: '70%',
     borderRadius: Theme.radius.full,
     backgroundColor: Theme.colors.primary,
   },

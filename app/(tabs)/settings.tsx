@@ -23,7 +23,6 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Image,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,7 +56,6 @@ const INTERVALS = [
 /** 可选的每日目标 */
 const DAILY_GOALS = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
 const BASE_WEIGHT_SLOPE = 14;
-const WATER_GLASS_IMAGE = require('../../assets/images/water-glass-soft.png');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high';
@@ -74,7 +72,7 @@ function SoftPressable({
   disabled,
   onPressIn,
   onPressOut,
-  scaleTo = 0.98,
+  scaleTo = 0.99,
   style,
   ...props
 }: SoftPressableProps) {
@@ -94,7 +92,7 @@ function SoftPressable({
       onPressIn={(event) => {
         setPressed(true);
         if (!disabled) {
-          scale.value = withTiming(scaleTo, { duration: 160 });
+          scale.value = withTiming(scaleTo, { duration: 190 });
         }
         onPressIn?.(event);
       }}
@@ -102,9 +100,9 @@ function SoftPressable({
         setPressed(false);
         if (!disabled) {
           scale.value = withSpring(1, {
-            damping: 16,
-            stiffness: 170,
-            mass: 0.55,
+            damping: 19,
+            stiffness: 145,
+            mass: 0.62,
           });
         }
         onPressOut?.(event);
@@ -244,7 +242,7 @@ function ActivityCard({
       <Feather
         name={option.icon}
         size={18}
-        color={selected ? Theme.colors.surface : Theme.colors.text}
+        color={selected ? Theme.colors.primary : Theme.colors.textSecondary}
       />
       <View style={styles.activityCopy}>
         <Text
@@ -316,13 +314,16 @@ const chipStyles = StyleSheet.create({
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: Theme.radius.full,
     backgroundColor: Theme.colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
     marginRight: 8,
     marginBottom: 8,
   },
   chipSelected: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primarySoft,
+    borderColor: Theme.colors.primaryBorder,
   },
   chipText: {
     fontSize: 14,
@@ -330,7 +331,7 @@ const chipStyles = StyleSheet.create({
     color: Theme.colors.textSecondary,
   },
   chipTextSelected: {
-    color: '#FFFFFF',
+    color: Theme.colors.primary,
   },
 });
 
@@ -558,8 +559,8 @@ export default function SettingsScreen() {
           style={styles.modalRoot}
         >
           <Animated.View
-            entering={FadeIn.duration(360)}
-            exiting={FadeOut.duration(260)}
+            entering={FadeIn.duration(320)}
+            exiting={FadeOut.duration(220)}
             style={styles.modalBackdrop}
           >
             <Pressable
@@ -568,8 +569,8 @@ export default function SettingsScreen() {
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.duration(430).easing(Easing.out(Easing.cubic))}
-            exiting={FadeOutDown.duration(220).easing(Easing.in(Easing.cubic))}
+            entering={FadeInDown.duration(520).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOutDown.duration(240).easing(Easing.in(Easing.cubic))}
             style={[
               styles.modalCard,
               { marginTop: Math.max(insets.top + 20, 36) },
@@ -692,11 +693,9 @@ export default function SettingsScreen() {
                     </View>
                   </View>
                   <View style={styles.resultIllustration}>
-                    <Image
-                      source={WATER_GLASS_IMAGE}
-                      style={styles.resultImage}
-                      resizeMode="contain"
-                    />
+                    <View style={styles.resultVisualSlot}>
+                      <View style={styles.resultVisualMark} />
+                    </View>
                   </View>
                 </View>
 
@@ -746,7 +745,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   pageTitle: {
-    fontSize: 28,
+    fontSize: Theme.type.pageTitle,
     fontFamily: Theme.fonts.medium,
     color: Theme.colors.text,
     marginBottom: 24,
@@ -758,14 +757,14 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
     // 极轻阴影
-    elevation: 1,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: Theme.type.sectionTitle,
     fontFamily: Theme.fonts.medium,
     color: Theme.colors.text,
     marginBottom: 6,
@@ -796,10 +795,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#F8EEE7',
+    backgroundColor: Theme.colors.primarySoft,
     borderRadius: Theme.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#F0D8CC',
+    borderColor: Theme.colors.primaryBorder,
     paddingLeft: 11,
     paddingRight: 8,
   },
@@ -848,7 +847,7 @@ const styles = StyleSheet.create({
   customInputShell: {
     width: 90,
     minHeight: 42,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: Theme.radius.input,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
@@ -879,7 +878,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primaryPressed,
   },
   saveButtonDisabled: {
-    backgroundColor: Theme.colors.border,
+    backgroundColor: Theme.colors.surfaceMuted,
   },
   saveButtonText: {
     color: Theme.colors.surface,
@@ -912,21 +911,21 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26, 22, 18, 0.32)',
+    backgroundColor: Theme.colors.backdrop,
   },
   modalCard: {
     maxHeight: '88%',
     backgroundColor: Theme.colors.surface,
     borderRadius: 22,
     overflow: 'hidden',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    elevation: 0,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 18,
+    elevation: Theme.shadow.floating.elevation,
+    shadowColor: Theme.shadow.floating.color,
+    shadowOffset: { width: 0, height: Theme.shadow.floating.offsetY },
+    shadowOpacity: Theme.shadow.floating.opacity,
+    shadowRadius: Theme.shadow.floating.radius,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -940,21 +939,21 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 19,
-    lineHeight: 25,
+    fontSize: 18,
+    lineHeight: 24,
   },
   modalDescription: {
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
     marginTop: 4,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: Theme.radius.full,
-    backgroundColor: '#F1ECE4',
+    backgroundColor: Theme.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -969,12 +968,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
-    padding: 12,
-    elevation: 1,
-    shadowColor: '#1A1612',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    padding: 14,
   },
   profileTitle: {
     color: Theme.colors.text,
@@ -1003,7 +997,7 @@ const styles = StyleSheet.create({
   weightInputShell: {
     width: 104,
     minHeight: 40,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
@@ -1026,8 +1020,8 @@ const styles = StyleSheet.create({
   fieldHint: {
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 18,
     marginTop: 8,
   },
   profileDivider: {
@@ -1065,7 +1059,7 @@ const styles = StyleSheet.create({
   activityCard: {
     width: '48.5%',
     minHeight: 58,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
@@ -1077,11 +1071,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   activityCardSelected: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primarySoft,
+    borderColor: Theme.colors.primaryBorder,
   },
   activityCardPressed: {
-    opacity: 0.82,
+    opacity: 0.86,
   },
   activityCopy: {
     flex: 1,
@@ -1090,21 +1084,21 @@ const styles = StyleSheet.create({
   activityTitle: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 17,
   },
   activityTitleSelected: {
-    color: Theme.colors.surface,
+    color: Theme.colors.primary,
   },
   activitySubtitle: {
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 11,
+    lineHeight: 15,
     marginTop: 3,
   },
   activitySubtitleSelected: {
-    color: Theme.colors.surface,
+    color: Theme.colors.primary,
   },
   dietGrid: {
     flexDirection: 'row',
@@ -1115,7 +1109,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     minHeight: 60,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.surfaceMuted,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
@@ -1124,33 +1118,33 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   smallOptionCardSelected: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primarySoft,
+    borderColor: Theme.colors.primaryBorder,
   },
   smallOptionTitle: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 16,
     textAlign: 'center',
   },
   smallOptionTitleSelected: {
-    color: Theme.colors.surface,
+    color: Theme.colors.primary,
   },
   smallOptionSubtitle: {
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 9,
-    lineHeight: 13,
+    fontSize: 11,
+    lineHeight: 15,
     textAlign: 'center',
     marginTop: 4,
   },
   smallOptionSubtitleSelected: {
-    color: Theme.colors.surface,
+    color: Theme.colors.primary,
   },
   resultCard: {
     minHeight: 118,
-    backgroundColor: '#FBF2E7',
+    backgroundColor: Theme.colors.primarySoft,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
@@ -1185,8 +1179,8 @@ const styles = StyleSheet.create({
   resultValue: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 40,
-    lineHeight: 46,
+    fontSize: 38,
+    lineHeight: 44,
   },
   resultUnit: {
     color: Theme.colors.textSecondary,
@@ -1215,10 +1209,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
-  resultImage: {
-    width: 86,
-    height: 86,
+  resultVisualSlot: {
+    width: 78,
+    height: 78,
     borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.primaryBorder,
+    backgroundColor: Theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultVisualMark: {
+    width: 24,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.primaryBorder,
+    backgroundColor: Theme.colors.primarySoft,
   },
   modalSecondaryButton: {
     minHeight: 42,
@@ -1228,7 +1235,7 @@ const styles = StyleSheet.create({
     borderRadius: Theme.radius.button,
   },
   modalSecondaryButtonPressed: {
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.surfaceMuted,
   },
   modalSecondaryText: {
     color: Theme.colors.textSecondary,

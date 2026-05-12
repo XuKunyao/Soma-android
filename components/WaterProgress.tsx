@@ -20,8 +20,8 @@ interface WaterProgressProps {
 }
 
 export function WaterProgress({ current, goal }: WaterProgressProps) {
-  const size = 220;                    // 圆环尺寸
-  const strokeWidth = 12;             // 线条粗细
+  const size = 214;                    // 圆环尺寸
+  const strokeWidth = 9;              // 线条粗细
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -86,13 +86,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currentText: {
-    fontSize: 42,
+    fontSize: Theme.type.metric,
     fontFamily: Theme.fonts.medium,
     color: Theme.colors.text,
     letterSpacing: 0,
   },
   dividerText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: Theme.fonts.regular,
     color: Theme.colors.textSecondary,
     marginTop: 2,

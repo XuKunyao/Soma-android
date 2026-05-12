@@ -14,6 +14,12 @@ export const Theme = {
     background: '#F5F0E8',
     /** 卡片/Surface 背景 — 比背景稍亮的暖白 */
     surface: '#FDFAF4',
+    /** 柔和填充 — 用于输入框、分段控件和弱强调区域 */
+    surfaceMuted: '#EFE9DF',
+    /** 轻微暖色强调 — 用于选中态背景，避免大面积强橙 */
+    primarySoft: '#F8EEE7',
+    /** 轻微暖色边框 */
+    primaryBorder: '#F0D8CC',
     /** 品牌主色 — 温暖的珊瑚橙 */
     primary: '#D97757',
     /** 品牌色按下态 — 稍深的珊瑚色 */
@@ -26,8 +32,14 @@ export const Theme = {
     border: '#E8E2D9',
     /** 达标成功色 — 柔和的苔绿色 */
     success: '#7A9A6D',
+    /** 达标成功的浅背景 */
+    successSoft: '#ECF1E8',
+    /** 删除操作的浅背景 */
+    dangerSoft: '#F7E7DD',
     /** 进度条背景轨道色 */
     trackBackground: '#EDE8DF',
+    /** 暖色遮罩 */
+    backdrop: 'rgba(26, 22, 18, 0.30)',
   },
   /** 圆角半径 */
   radius: {
@@ -40,6 +52,31 @@ export const Theme = {
   animation: {
     duration: 350,
     easing: 'ease-in-out',
+  },
+  /** 字号层级 */
+  type: {
+    pageTitle: 28,
+    sectionTitle: 17,
+    body: 14,
+    caption: 12,
+    metric: 42,
+  },
+  /** 阴影层级 — 尽量轻，只用于真正的浮层或卡片 */
+  shadow: {
+    card: {
+      color: '#1A1612',
+      opacity: 0.05,
+      radius: 3,
+      offsetY: 1,
+      elevation: 1,
+    },
+    floating: {
+      color: '#1A1612',
+      opacity: 0.08,
+      radius: 18,
+      offsetY: 12,
+      elevation: 0,
+    },
   },
   /** 间距系统 — 8px 基准 */
   spacing: {

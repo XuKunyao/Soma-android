@@ -141,7 +141,7 @@ export function WaterLogItem({
 
 const styles = StyleSheet.create({
   swipeContainer: {
-    backgroundColor: '#F7E7DD',
+    backgroundColor: Theme.colors.dangerSoft,
   },
   container: {
     flexDirection: 'row',
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   deleteActionWrap: {
     width: 82,
-    backgroundColor: '#F7E7DD',
+    backgroundColor: Theme.colors.dangerSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Theme.colors.border,
     alignItems: 'stretch',

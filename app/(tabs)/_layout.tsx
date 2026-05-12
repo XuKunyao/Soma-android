@@ -15,7 +15,7 @@
 
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { HapticTab } from '@/components/haptic-tab';
 import { Theme } from '@/constants/theme';
@@ -33,7 +33,7 @@ function TabIcon({
   return (
     <Feather
       name={name}
-      size={22}
+      size={20}
       color={focused ? Theme.colors.primary : Theme.colors.textSecondary}
     />
   );
@@ -50,7 +50,7 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: Theme.colors.surface,
           borderTopColor: Theme.colors.border,
-          borderTopWidth: 1,
+          borderTopWidth: StyleSheet.hairlineWidth,
           elevation: 0,           // 移除安卓默认阴影
           height: Platform.OS === 'android' ? 60 : 85,
           paddingBottom: Platform.OS === 'android' ? 8 : 28,

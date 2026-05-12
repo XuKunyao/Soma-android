@@ -18,7 +18,7 @@ function getGreeting(): { text: string; subtitle: string } {
   if (hour >= 5 && hour < 12) {
     return {
       text: '早上好',
-      subtitle: '新的一天，记得喝水哦',
+      subtitle: '新的一天，慢慢开始',
     };
   } else if (hour >= 12 && hour < 18) {
     return {
@@ -28,12 +28,12 @@ function getGreeting(): { text: string; subtitle: string } {
   } else if (hour >= 18 && hour < 23) {
     return {
       text: '晚上好',
-      subtitle: '辛苦了，喝杯水放松一下',
+      subtitle: '辛苦了，照顾一下自己',
     };
   } else {
     return {
       text: '夜深了',
-      subtitle: '早点休息，明天继续加油',
+      subtitle: '早点休息，明天再继续',
     };
   }
 }
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   greeting: {
-    fontSize: 28,
+    fontSize: Theme.type.pageTitle,
     fontFamily: Theme.fonts.medium,
     color: Theme.colors.text,
     letterSpacing: 0.5,
