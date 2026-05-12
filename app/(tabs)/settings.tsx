@@ -120,35 +120,30 @@ const ACTIVITY_LEVELS: {
   value: ActivityLevel;
   title: string;
   subtitle: string;
-  icon: React.ComponentProps<typeof Feather>['name'];
   extraMl: number;
 }[] = [
   {
     value: 'sedentary',
     title: '久坐办公',
     subtitle: '较少运动',
-    icon: 'monitor',
     extraMl: 0,
   },
   {
     value: 'light',
     title: '轻度活动',
     subtitle: '偶尔运动',
-    icon: 'wind',
     extraMl: 200,
   },
   {
     value: 'moderate',
     title: '中度活动',
     subtitle: '经常运动',
-    icon: 'activity',
     extraMl: 400,
   },
   {
     value: 'high',
     title: '高强度',
     subtitle: '高强度运动',
-    icon: 'zap',
     extraMl: 700,
   },
 ];
@@ -241,11 +236,6 @@ function ActivityCard({
         pressed && styles.activityCardPressed,
       ]}
     >
-      <Feather
-        name={option.icon}
-        size={18}
-        color={selected ? Theme.colors.primary : Theme.colors.textSecondary}
-      />
       <View style={styles.activityCopy}>
         <Text
           style={[
@@ -611,7 +601,6 @@ export default function SettingsScreen() {
 
                   <View style={styles.weightRow}>
                     <View style={styles.weightLabelGroup}>
-                      <Feather name="box" size={16} color={Theme.colors.textSecondary} />
                       <Text style={styles.weightLabel}>体重</Text>
                     </View>
                     <View style={styles.weightInputShell}>
@@ -1194,23 +1183,23 @@ const styles = StyleSheet.create({
   },
   resultIllustration: {
     position: 'absolute',
-    top: 18,
-    right: 8,
-    width: 104,
-    height: 94,
+    top: 12,
+    right: 12,
+    width: 102,
+    height: 102,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultVisualSlot: {
-    width: 104,
-    height: 94,
+    width: 102,
+    height: 102,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultImage: {
-    width: 112,
-    height: 108,
+    width: 108,
+    height: 112,
   },
   modalPrimaryButton: {
     minHeight: 48,
