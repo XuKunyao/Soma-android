@@ -648,29 +648,33 @@ export default function SettingsScreen() {
                     <Text style={styles.profileTitle}>生活习惯</Text>
                   </View>
 
-                  <Text style={styles.choiceLabel}>每日活动量</Text>
-                  <View style={styles.activityGrid}>
-                    {ACTIVITY_LEVELS.map((option) => (
-                      <ActivityCard
-                        key={option.value}
-                        option={option}
-                        selected={activityLevel === option.value}
-                        onPress={() => setActivityLevel(option.value)}
-                      />
-                    ))}
+                  <View style={styles.inlineChoiceBlock}>
+                    <Text style={styles.choiceLabel}>每日活动量</Text>
+                    <View style={styles.activityGrid}>
+                      {ACTIVITY_LEVELS.map((option) => (
+                        <ActivityCard
+                          key={option.value}
+                          option={option}
+                          selected={activityLevel === option.value}
+                          onPress={() => setActivityLevel(option.value)}
+                        />
+                      ))}
+                    </View>
                   </View>
 
-                  <Text style={styles.choiceLabel}>饮食习惯</Text>
-                  <View style={styles.dietGrid}>
-                    {DIET_PROFILES.map((option) => (
-                      <SmallOptionCard
-                        key={option.value}
-                        title={option.title}
-                        subtitle={option.subtitle}
-                        selected={dietProfile === option.value}
-                        onPress={() => setDietProfile(option.value)}
-                      />
-                    ))}
+                  <View style={styles.inlineChoiceBlock}>
+                    <Text style={styles.choiceLabel}>饮食习惯</Text>
+                    <View style={styles.dietGrid}>
+                      {DIET_PROFILES.map((option) => (
+                        <SmallOptionCard
+                          key={option.value}
+                          title={option.title}
+                          subtitle={option.subtitle}
+                          selected={dietProfile === option.value}
+                          onPress={() => setDietProfile(option.value)}
+                        />
+                      ))}
+                    </View>
                   </View>
                 </View>
 
@@ -963,16 +967,21 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   profileCard: {
-    gap: 14,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
+    padding: 14,
+    gap: 16,
   },
   modalSectionBlock: {
-    gap: 10,
+    gap: 12,
   },
   profileTitle: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 21,
   },
   weightRow: {
     flexDirection: 'row',
@@ -996,7 +1005,8 @@ const styles = StyleSheet.create({
   weightLabel: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 19,
   },
   weightInputShell: {
     width: 104,
@@ -1034,10 +1044,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   choiceLabel: {
-    color: Theme.colors.textSecondary,
+    color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 19,
   },
   sexGroup: {
     flexDirection: 'row',
