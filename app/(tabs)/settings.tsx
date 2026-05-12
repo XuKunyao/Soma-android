@@ -602,7 +602,10 @@ export default function SettingsScreen() {
             >
               <View style={styles.profileCard}>
                 <View style={styles.modalSectionBlock}>
-                  <Text style={styles.profileTitle}>身体数据</Text>
+                  <View style={styles.profileTitleRow}>
+                    <Feather name="user" size={16} color={Theme.colors.textSecondary} />
+                    <Text style={styles.profileTitle}>身体数据</Text>
+                  </View>
 
                   <View style={styles.weightRow}>
                     <View style={styles.weightLabelGroup}>
@@ -623,7 +626,10 @@ export default function SettingsScreen() {
                   </View>
 
                   <View style={styles.inlineChoiceBlock}>
-                    <Text style={styles.profileTitle}>性别参考</Text>
+                    <View style={styles.profileTitleRow}>
+                      <Feather name="users" size={16} color={Theme.colors.textSecondary} />
+                      <Text style={styles.profileTitle}>性别参考</Text>
+                    </View>
                     <View style={styles.sexGroup}>
                       {SEX_PROFILES.map((option) => (
                         <Chip
@@ -637,11 +643,12 @@ export default function SettingsScreen() {
                   </View>
                 </View>
 
-                <View style={styles.profileDivider} />
-
                 <View style={styles.modalSectionBlock}>
                   <View style={styles.inlineChoiceBlock}>
-                    <Text style={styles.profileTitle}>每日活动量</Text>
+                    <View style={styles.profileTitleRow}>
+                      <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
+                      <Text style={styles.profileTitle}>每日活动量</Text>
+                    </View>
                     <View style={styles.activityGrid}>
                       {ACTIVITY_LEVELS.map((option) => (
                         <ActivityCard
@@ -655,7 +662,10 @@ export default function SettingsScreen() {
                   </View>
 
                   <View style={styles.inlineChoiceBlock}>
-                    <Text style={styles.profileTitle}>饮食习惯</Text>
+                    <View style={styles.profileTitleRow}>
+                      <Feather name="coffee" size={16} color={Theme.colors.textSecondary} />
+                      <Text style={styles.profileTitle}>饮食习惯</Text>
+                    </View>
                     <View style={styles.dietGrid}>
                       {DIET_PROFILES.map((option) => (
                         <SmallOptionCard
@@ -966,6 +976,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 21,
   },
+  profileTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   weightRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1013,10 +1028,6 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
-  },
-  profileDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Theme.colors.border,
   },
   inlineChoiceBlock: {
     gap: 8,
