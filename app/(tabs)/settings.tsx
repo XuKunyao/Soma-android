@@ -24,9 +24,11 @@ import {
   KeyboardAvoidingView,
   Image,
   Platform,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -42,6 +44,7 @@ import Animated, {
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
+import { buildWaterDataExport } from '@/utils/storage';
 
 /** 可选的单次饮水量 */
 const CUP_SIZES = [100, 150, 200, 250, 300, 400, 500];
@@ -385,6 +388,8 @@ export default function SettingsScreen() {
   const { settings } = state;
   const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
+  const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
+  const [exportStatus, setExportStatus] = React.useState('');
   const [weightKg, setWeightKg] = React.useState('60');
   const [activityLevel, setActivityLevel] = React.useState<ActivityLevel>('sedentary');
   const [sexProfile, setSexProfile] = React.useState<SexProfile>('unspecified');
@@ -405,18 +410,26 @@ export default function SettingsScreen() {
       reminderTitle: 'Reminder interval',
       reminderDescription: 'Receive quiet hydration reminders.',
       systemTitle: 'System settings',
-      systemDescription: 'Language, appearance, feedback, and app information.',
+      systemDescription: 'Language, appearance, backups, and app information.',
+      systemEntryDescription: 'Language, appearance, backup, about',
       language: 'Language',
       appearance: 'Appearance',
-      haptics: 'Haptic feedback',
-      hapticsDescription: 'Subtle touch response for supported controls.',
-      on: 'On',
-      off: 'Off',
       dataTitle: 'Data storage',
-      dataDescription: 'Records and preferences stay on this device.',
+      dataDescription: 'Records are stored inside Soma. Choose a backup location and export a local JSON file.',
+      exportPath: 'Backup location',
+      exportPathEmpty: 'No backup location selected',
+      exportPathSelected: 'Backup location selected',
+      chooseExportPath: 'Choose location',
+      exportData: 'Export data',
+      exportReady: 'Data exported successfully.',
+      exportNeedsPath: 'Choose a backup location first.',
+      exportCanceled: 'No location was selected.',
+      exportUnavailable: 'Folder selection is only available on Android. Data was saved to the app document folder.',
+      exportFailed: 'Export failed. Please try again.',
       aboutTitle: 'About Soma',
-      aboutDescription: 'A quiet hydration reminder shaped for daily care.',
+      aboutDescription: '慢慢喝水，慢慢照顾自己。',
       author: 'Author',
+      contact: 'Contact',
       version: 'Version',
       currentName: 'XuKunyao',
       modalTitle: 'Custom hydration goal',
@@ -447,18 +460,26 @@ export default function SettingsScreen() {
       reminderTitle: '提醒间隔',
       reminderDescription: '定期收到喝水提醒通知',
       systemTitle: '系统设置',
-      systemDescription: '设置语言、外观、反馈和应用信息。',
+      systemDescription: '设置语言、外观、数据备份和应用信息。',
+      systemEntryDescription: '语言、外观、备份、关于',
       language: '语言',
       appearance: '外观',
-      haptics: '触感反馈',
-      hapticsDescription: '为支持的控件提供轻微触感。',
-      on: '开启',
-      off: '关闭',
       dataTitle: '数据存储',
-      dataDescription: '记录和偏好保存在当前设备本地。',
+      dataDescription: '记录保存在 Soma 应用内部。你可以选择备份位置，并导出本地 JSON 文件。',
+      exportPath: '备份位置',
+      exportPathEmpty: '尚未选择备份位置',
+      exportPathSelected: '已选择备份位置',
+      chooseExportPath: '选择位置',
+      exportData: '导出数据',
+      exportReady: '数据已成功导出。',
+      exportNeedsPath: '请先选择备份位置。',
+      exportCanceled: '未选择位置。',
+      exportUnavailable: '当前平台不支持选择文件夹，已保存到应用文档目录。',
+      exportFailed: '导出失败，请重试。',
       aboutTitle: '关于 Soma',
-      aboutDescription: '一款安静克制的喝水提醒工具。',
+      aboutDescription: '慢慢喝水，慢慢照顾自己。',
       author: '作者',
+      contact: '联系方式',
       version: '版本',
       currentName: 'XuKunyao',
       modalTitle: '自定义喝水目标',
@@ -532,6 +553,84 @@ export default function SettingsScreen() {
   const cupEstimateText = cupCountMin === cupCountMax
     ? copy.cupSingle.replace('{count}', String(cupCountMin))
     : copy.cupRange.replace('{min}', String(cupCountMin)).replace('{max}', String(cupCountMax));
+  const selectedAppearanceLabel = APPEARANCE_OPTIONS[language].find(
+    (option) => option.value === settings.appearance,
+  )?.label ?? APPEARANCE_OPTIONS[language][0].label;
+  const selectedLanguageLabel = LANGUAGE_OPTIONS.find(
+    (option) => option.value === settings.language,
+  )?.label ?? LANGUAGE_OPTIONS[0].label;
+  const systemSummary = `${selectedLanguageLabel} · ${selectedAppearanceLabel}`;
+  const exportDirectoryLabel = settings.exportDirectoryUri
+    ? copy.exportPathSelected
+    : copy.exportPathEmpty;
+
+  const chooseExportDirectory = async () => {
+    setExportStatus('');
+
+    if (Platform.OS !== 'android') {
+      updateSettings({ exportDirectoryUri: FileSystem.documentDirectory ?? '' });
+      setExportStatus(copy.exportUnavailable);
+      return;
+    }
+
+    try {
+      const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+        settings.exportDirectoryUri || undefined,
+      );
+
+      if (!permissions.granted) {
+        setExportStatus(copy.exportCanceled);
+        return;
+      }
+
+      updateSettings({ exportDirectoryUri: permissions.directoryUri });
+      setExportStatus(copy.exportPathSelected);
+    } catch {
+      setExportStatus(copy.exportFailed);
+    }
+  };
+
+  const exportWaterData = async () => {
+    setExportStatus('');
+
+    try {
+      const payload = await buildWaterDataExport();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `soma-water-data-${timestamp}`;
+      const contents = JSON.stringify(payload, null, 2);
+
+      if (Platform.OS === 'android') {
+        if (!settings.exportDirectoryUri) {
+          setExportStatus(copy.exportNeedsPath);
+          return;
+        }
+
+        const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          settings.exportDirectoryUri,
+          filename,
+          'application/json',
+        );
+        await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, contents, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        setExportStatus(copy.exportReady);
+        return;
+      }
+
+      if (!FileSystem.documentDirectory) {
+        setExportStatus(copy.exportFailed);
+        return;
+      }
+
+      await FileSystem.writeAsStringAsync(`${FileSystem.documentDirectory}${filename}.json`, contents, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      setExportStatus(copy.exportReady);
+    } catch {
+      setExportStatus(copy.exportFailed);
+      Alert.alert(copy.dataTitle, copy.exportFailed);
+    }
+  };
 
   const sanitizeDecimal = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, '');
@@ -686,96 +785,27 @@ export default function SettingsScreen() {
         </View>
       </View>
       {/* 系统设置 */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{copy.systemTitle}</Text>
-        <Text style={styles.cardDescription}>{copy.systemDescription}</Text>
-
-        <View style={styles.systemRow}>
-          <View style={styles.systemLabelRow}>
-            <Feather name="globe" size={16} color={colors.textSecondary} />
-            <Text style={styles.systemLabel}>{copy.language}</Text>
+      <SoftPressable
+        onPress={() => setIsSystemModalVisible(true)}
+        style={({ pressed }) => [
+          styles.card,
+          styles.systemEntryCard,
+          pressed && styles.estimateButtonPressed,
+        ]}
+      >
+        <View style={styles.systemEntryLeft}>
+          <View style={styles.systemEntryIcon}>
+            <Feather name="settings" size={17} color={colors.primary} />
           </View>
-          <View style={styles.systemChipGroup}>
-            {LANGUAGE_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={settings.language === option.value}
-                onPress={() => updateSettings({ language: option.value })}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.systemDivider} />
-
-        <View style={styles.systemRow}>
-          <View style={styles.systemLabelRow}>
-            <Feather name="moon" size={16} color={colors.textSecondary} />
-            <Text style={styles.systemLabel}>{copy.appearance}</Text>
-          </View>
-          <View style={styles.systemChipGroup}>
-            {APPEARANCE_OPTIONS[language].map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={settings.appearance === option.value}
-                onPress={() => updateSettings({ appearance: option.value })}
-              />
-            ))}
+          <View style={styles.systemEntryCopy}>
+            <Text style={styles.cardTitle}>{copy.systemTitle}</Text>
+            <Text style={styles.systemEntryDescription}>
+              {copy.systemEntryDescription} · {systemSummary}
+            </Text>
           </View>
         </View>
-
-        <View style={styles.systemDivider} />
-
-        <View style={styles.systemRow}>
-          <View style={styles.systemLabelRow}>
-            <Feather name="smartphone" size={16} color={colors.textSecondary} />
-            <Text style={styles.systemLabel}>{copy.haptics}</Text>
-          </View>
-          <Text style={styles.systemDescriptionText}>{copy.hapticsDescription}</Text>
-          <View style={styles.systemChipGroup}>
-            <Chip
-              label={copy.on}
-              selected={settings.hapticsEnabled}
-              onPress={() => updateSettings({ hapticsEnabled: true })}
-            />
-            <Chip
-              label={copy.off}
-              selected={!settings.hapticsEnabled}
-              onPress={() => updateSettings({ hapticsEnabled: false })}
-            />
-          </View>
-        </View>
-
-        <View style={styles.systemDivider} />
-
-        <View style={styles.systemRow}>
-          <View style={styles.systemLabelRow}>
-            <Feather name="database" size={16} color={colors.textSecondary} />
-            <Text style={styles.systemLabel}>{copy.dataTitle}</Text>
-          </View>
-          <Text style={styles.systemDescriptionText}>{copy.dataDescription}</Text>
-        </View>
-
-        <View style={styles.systemDivider} />
-
-        <View style={styles.systemRow}>
-          <View style={styles.systemLabelRow}>
-            <Feather name="info" size={16} color={colors.textSecondary} />
-            <Text style={styles.systemLabel}>{copy.aboutTitle}</Text>
-          </View>
-          <Text style={styles.systemDescriptionText}>{copy.aboutDescription}</Text>
-          <View style={styles.aboutInfoRow}>
-            <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
-            <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
-          </View>
-          <View style={styles.aboutInfoRow}>
-            <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
-            <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
-          </View>
-        </View>
-      </View>
+        <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+      </SoftPressable>
 
       <View style={{ height: 32 }} />
 
@@ -956,9 +986,164 @@ export default function SettingsScreen() {
                       !isWeightValid && styles.saveButtonTextDisabled,
                     ]}
                   >
-                    {copy.apply}这个目标
+                    {copy.applyGoal}
                   </Text>
                 </SoftPressable>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={isSystemModalVisible}
+        transparent
+        animationType="none"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setIsSystemModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalRoot}
+        >
+          <Animated.View
+            entering={FadeIn.duration(280)}
+            exiting={FadeOut.duration(200)}
+            style={styles.modalBackdrop}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setIsSystemModalVisible(false)}
+            />
+          </Animated.View>
+          <Animated.View
+            entering={FadeInDown.duration(460).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOutDown.duration(220).easing(Easing.in(Easing.cubic))}
+            style={[
+              styles.modalCard,
+              styles.systemModalCard,
+              { marginTop: Math.max(insets.top + 20, 36) },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>{copy.systemTitle}</Text>
+                <Text style={styles.modalDescription}>{copy.systemDescription}</Text>
+              </View>
+              <SoftPressable
+                onPress={() => setIsSystemModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={21} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.systemModalContent}
+            >
+              <View style={styles.systemPanel}>
+                <View style={styles.systemSection}>
+                  <View style={styles.systemLabelRow}>
+                    <Feather name="globe" size={16} color={colors.textSecondary} />
+                    <Text style={styles.systemLabel}>{copy.language}</Text>
+                  </View>
+                  <View style={styles.systemChipGroup}>
+                    {LANGUAGE_OPTIONS.map((option) => (
+                      <Chip
+                        key={option.value}
+                        label={option.label}
+                        selected={settings.language === option.value}
+                        onPress={() => updateSettings({ language: option.value })}
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.systemDivider} />
+
+                <View style={styles.systemSection}>
+                  <View style={styles.systemLabelRow}>
+                    <Feather name="moon" size={16} color={colors.textSecondary} />
+                    <Text style={styles.systemLabel}>{copy.appearance}</Text>
+                  </View>
+                  <View style={styles.systemChipGroup}>
+                    {APPEARANCE_OPTIONS[language].map((option) => (
+                      <Chip
+                        key={option.value}
+                        label={option.label}
+                        selected={settings.appearance === option.value}
+                        onPress={() => updateSettings({ appearance: option.value })}
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.systemDivider} />
+
+                <View style={styles.systemSection}>
+                  <View style={styles.systemLabelRow}>
+                    <Feather name="database" size={16} color={colors.textSecondary} />
+                    <Text style={styles.systemLabel}>{copy.dataTitle}</Text>
+                  </View>
+                  <Text style={styles.systemDescriptionText}>{copy.dataDescription}</Text>
+                  <View style={styles.dataPathBox}>
+                    <Text style={styles.dataPathLabel}>{copy.exportPath}</Text>
+                    <Text style={styles.dataPathValue} numberOfLines={1}>
+                      {exportDirectoryLabel}
+                    </Text>
+                  </View>
+                  <View style={styles.systemActionRow}>
+                    <SoftPressable
+                      onPress={chooseExportDirectory}
+                      style={({ pressed }) => [
+                        styles.secondaryActionButton,
+                        pressed && styles.estimateButtonPressed,
+                      ]}
+                    >
+                      <Text style={styles.secondaryActionText}>{copy.chooseExportPath}</Text>
+                    </SoftPressable>
+                    <SoftPressable
+                      onPress={exportWaterData}
+                      style={({ pressed }) => [
+                        styles.primaryActionButton,
+                        pressed && styles.saveButtonPressed,
+                      ]}
+                    >
+                      <Text style={styles.primaryActionText}>{copy.exportData}</Text>
+                    </SoftPressable>
+                  </View>
+                  {exportStatus ? (
+                    <Text style={styles.exportStatusText}>{exportStatus}</Text>
+                  ) : null}
+                </View>
+
+                <View style={styles.systemDivider} />
+
+                <View style={styles.systemSection}>
+                  <View style={styles.systemLabelRow}>
+                    <Feather name="info" size={16} color={colors.textSecondary} />
+                    <Text style={styles.systemLabel}>{copy.aboutTitle}</Text>
+                  </View>
+                  <Text style={styles.systemDescriptionText}>{copy.aboutDescription}</Text>
+                  <View style={styles.aboutInfoRow}>
+                    <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
+                    <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
+                  </View>
+                  <View style={styles.aboutInfoRow}>
+                    <Text style={styles.aboutInfoLabel}>{copy.contact}</Text>
+                    <Text style={styles.aboutInfoValue}>xukunyao215@163.com</Text>
+                  </View>
+                  <View style={styles.aboutInfoRow}>
+                    <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
+                    <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
+                  </View>
+                </View>
               </View>
             </ScrollView>
           </Animated.View>
@@ -1122,7 +1307,54 @@ function createStyles(colors: typeof Theme.colors) {
   saveButtonTextDisabled: {
     color: colors.textSecondary,
   },
+  systemEntryCard: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  systemEntryLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  systemEntryIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  systemEntryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  systemEntryDescription: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   systemRow: {
+    gap: 10,
+  },
+  systemModalCard: {
+    maxHeight: '84%',
+  },
+  systemModalContent: {
+    paddingBottom: 2,
+  },
+  systemPanel: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  systemSection: {
     gap: 10,
   },
   systemLabelRow: {
@@ -1150,6 +1382,67 @@ function createStyles(colors: typeof Theme.colors) {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
     marginVertical: 14,
+  },
+  dataPathBox: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 3,
+  },
+  dataPathLabel: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  dataPathValue: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  systemActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: Theme.radius.button,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  secondaryActionText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 13,
+  },
+  primaryActionButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: Theme.radius.button,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  primaryActionText: {
+    color: colors.surface,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 13,
+  },
+  exportStatusText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
   },
   aboutInfoRow: {
     flexDirection: 'row',
