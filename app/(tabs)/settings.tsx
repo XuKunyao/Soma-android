@@ -601,78 +601,77 @@ export default function SettingsScreen() {
               contentContainerStyle={styles.modalScrollContent}
             >
               <View style={styles.profileCard}>
-                <Text style={styles.profileTitle}>身体数据</Text>
-
-                <View style={styles.weightRow}>
-                  <View style={styles.weightLabelGroup}>
-                    <Feather name="box" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.weightLabel}>体重</Text>
+                <View style={styles.modalSectionBlock}>
+                  <View style={styles.modalSectionHeader}>
+                    <Feather name="user" size={16} color={Theme.colors.textSecondary} />
+                    <Text style={styles.profileTitle}>身体数据</Text>
                   </View>
-                  <View style={styles.weightInputShell}>
-                    <TextInput
-                      value={weightKg}
-                      onChangeText={(value) => setWeightKg(sanitizeDecimal(value))}
-                      keyboardType="decimal-pad"
-                      placeholder="60"
-                      placeholderTextColor={Theme.colors.textSecondary}
-                      style={styles.weightInput}
-                    />
-                    <Text style={styles.weightUnit}>kg</Text>
+
+                  <View style={styles.weightRow}>
+                    <View style={styles.weightLabelGroup}>
+                      <Feather name="box" size={16} color={Theme.colors.textSecondary} />
+                      <Text style={styles.weightLabel}>体重</Text>
+                    </View>
+                    <View style={styles.weightInputShell}>
+                      <TextInput
+                        value={weightKg}
+                        onChangeText={(value) => setWeightKg(sanitizeDecimal(value))}
+                        keyboardType="decimal-pad"
+                        placeholder="60"
+                        placeholderTextColor={Theme.colors.textSecondary}
+                        style={styles.weightInput}
+                      />
+                      <Text style={styles.weightUnit}>kg</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.inlineChoiceBlock}>
+                    <Text style={styles.choiceLabel}>性别参考</Text>
+                    <View style={styles.sexGroup}>
+                      {SEX_PROFILES.map((option) => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          selected={sexProfile === option.value}
+                          onPress={() => setSexProfile(option.value)}
+                        />
+                      ))}
+                    </View>
                   </View>
                 </View>
-                <Text style={styles.fieldHint}>建议输入实际体重，计算更准确</Text>
 
                 <View style={styles.profileDivider} />
 
-                <View style={styles.modalSectionHeader}>
-                  <Feather name="user" size={16} color={Theme.colors.textSecondary} />
-                  <Text style={styles.activityHeaderText}>性别参考</Text>
-                </View>
-                <View style={styles.sexGroup}>
-                  {SEX_PROFILES.map((option) => (
-                    <Chip
-                      key={option.value}
-                      label={option.label}
-                      selected={sexProfile === option.value}
-                      onPress={() => setSexProfile(option.value)}
-                    />
-                  ))}
-                </View>
-                <Text style={styles.fieldHint}>
-                  以温和气候、低活动水平下的成年人喝水建议为参考
-                </Text>
+                <View style={styles.modalSectionBlock}>
+                  <View style={styles.modalSectionHeader}>
+                    <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
+                    <Text style={styles.profileTitle}>生活习惯</Text>
+                  </View>
 
-                <View style={styles.profileDivider} />
+                  <Text style={styles.choiceLabel}>每日活动量</Text>
+                  <View style={styles.activityGrid}>
+                    {ACTIVITY_LEVELS.map((option) => (
+                      <ActivityCard
+                        key={option.value}
+                        option={option}
+                        selected={activityLevel === option.value}
+                        onPress={() => setActivityLevel(option.value)}
+                      />
+                    ))}
+                  </View>
 
-                <View style={styles.activityHeader}>
-                  <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
-                  <Text style={styles.activityHeaderText}>每日活动量</Text>
-                </View>
-                <View style={styles.activityGrid}>
-                  {ACTIVITY_LEVELS.map((option) => (
-                    <ActivityCard
-                      key={option.value}
-                      option={option}
-                      selected={activityLevel === option.value}
-                      onPress={() => setActivityLevel(option.value)}
-                    />
-                  ))}
-                </View>
-
-                <View style={styles.modalSectionHeader}>
-                  <Feather name="coffee" size={16} color={Theme.colors.textSecondary} />
-                  <Text style={styles.activityHeaderText}>饮食习惯</Text>
-                </View>
-                <View style={styles.dietGrid}>
-                  {DIET_PROFILES.map((option) => (
-                    <SmallOptionCard
-                      key={option.value}
-                      title={option.title}
-                      subtitle={option.subtitle}
-                      selected={dietProfile === option.value}
-                      onPress={() => setDietProfile(option.value)}
-                    />
-                  ))}
+                  <Text style={styles.choiceLabel}>饮食习惯</Text>
+                  <View style={styles.dietGrid}>
+                    {DIET_PROFILES.map((option) => (
+                      <SmallOptionCard
+                        key={option.value}
+                        title={option.title}
+                        subtitle={option.subtitle}
+                        selected={dietProfile === option.value}
+                        onPress={() => setDietProfile(option.value)}
+                      />
+                    ))}
+                  </View>
                 </View>
 
                 <View style={styles.resultCard}>
@@ -964,24 +963,29 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   profileCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
-    padding: 14,
+    gap: 14,
+  },
+  modalSectionBlock: {
+    gap: 10,
   },
   profileTitle: {
     color: Theme.colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
     lineHeight: 20,
-    marginBottom: 12,
   },
   weightRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: Theme.colors.surfaceMuted,
+    borderRadius: 15,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
     gap: 16,
+    minHeight: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   weightLabelGroup: {
     flexDirection: 'row',
@@ -997,7 +1001,7 @@ const styles = StyleSheet.create({
   weightInputShell: {
     width: 104,
     minHeight: 40,
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: Theme.colors.surface,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
@@ -1017,44 +1021,33 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
   },
-  fieldHint: {
-    color: Theme.colors.textSecondary,
-    fontFamily: Theme.fonts.regular,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 8,
-  },
   profileDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Theme.colors.border,
-    marginVertical: 12,
   },
   modalSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+  },
+  inlineChoiceBlock: {
+    gap: 8,
+  },
+  choiceLabel: {
+    color: Theme.colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 12,
+    lineHeight: 16,
   },
   sexGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  activityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  activityHeaderText: {
-    color: Theme.colors.text,
-    fontFamily: Theme.fonts.medium,
-    fontSize: 13,
-  },
   activityGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   activityCard: {
     width: '48.5%',
@@ -1103,7 +1096,7 @@ const styles = StyleSheet.create({
   dietGrid: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 2,
   },
   smallOptionCard: {
     flex: 1,
@@ -1149,6 +1142,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
     padding: 14,
+    marginTop: 2,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
