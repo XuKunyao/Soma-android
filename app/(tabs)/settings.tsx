@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -1059,12 +1059,14 @@ const styles = StyleSheet.create({
   activityCopy: {
     flex: 1,
     minWidth: 0,
+    alignItems: 'center',
   },
   activityTitle: {
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 13,
     lineHeight: 17,
+    textAlign: 'center',
   },
   activityTitleSelected: {
     color: Theme.colors.primary,
@@ -1075,6 +1077,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     marginTop: 3,
+    textAlign: 'center',
   },
   activitySubtitleSelected: {
     color: Theme.colors.primary,
@@ -1183,7 +1186,7 @@ const styles = StyleSheet.create({
   },
   resultIllustration: {
     position: 'absolute',
-    top: 12,
+    top: 20,
     right: 12,
     width: 102,
     height: 102,
