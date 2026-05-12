@@ -1,4 +1,4 @@
-# Reverie
+# Soma
 
 ![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-8B7CF6?style=flat-square&logo=expo&logoColor=white)
 ![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=white)
@@ -6,7 +6,7 @@
 ![Android](https://img.shields.io/badge/Android-Target-3DDC84?style=flat-square&logo=android&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-MVP%20in%20progress-D97757?style=flat-square)
 
-Reverie 是一个温暖、安静、克制的喝水提醒应用。它的目标不是制造更多打扰，而是在合适的时间轻轻提醒你补充水分，并用清晰的记录帮助你了解今天的饮水状态。
+Soma 是一个温暖、安静、克制的喝水提醒应用。它的目标不是制造更多打扰，而是在合适的时间轻轻提醒你补充水分，并用清晰的记录帮助你了解今天的饮水状态。
 
 当前版本是第一阶段 MVP，重点放在基础体验：今日进度、快速记录、本地存储、极简设置和本地提醒。
 
@@ -22,7 +22,7 @@ Reverie 是一个温暖、安静、克制的喝水提醒应用。它的目标不
 
 ## Design
 
-Reverie 的视觉方向是温暖、轻量、留白充足。界面避免强刺激色彩和复杂装饰，把注意力放在“今天喝了多少水”这一件事上。
+Soma 的视觉方向是温暖、轻量、留白充足。界面避免强刺激色彩和复杂装饰，把注意力放在“今天喝了多少水”这一件事上。
 
 核心色彩定义在 [`constants/theme.ts`](constants/theme.ts)：
 

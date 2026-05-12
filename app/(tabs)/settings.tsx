@@ -540,7 +540,7 @@ export default function SettingsScreen() {
 
       {/* 关于 */}
       <View style={styles.aboutSection}>
-        <Text style={styles.aboutText}>Reverie · 喝水提醒</Text>
+        <Text style={styles.aboutText}>Soma · 喝水提醒</Text>
         <Text style={styles.aboutVersion}>v1.0.0</Text>
       </View>
 

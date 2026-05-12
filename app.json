@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Reverie",
-    "slug": "Reverie",
+    "name": "Soma",
+    "slug": "soma",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "reverie",
+    "scheme": "soma",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
