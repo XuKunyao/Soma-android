@@ -139,6 +139,19 @@ function SoftPressable({
   );
 }
 
+function formatTimeInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function isValidTimeInput(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
 const ACTIVITY_LEVELS: {
   value: ActivityLevel;
   title: string;
@@ -387,6 +400,8 @@ export default function SettingsScreen() {
   const { state, updateSettings } = useWater();
   const { settings } = state;
   const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
+  const [quietStartInput, setQuietStartInput] = React.useState(settings.reminderQuietStart);
+  const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
   const [isAboutModalVisible, setIsAboutModalVisible] = React.useState(false);
@@ -421,6 +436,13 @@ export default function SettingsScreen() {
       apply: 'Apply',
       reminderTitle: 'Reminder interval',
       reminderDescription: 'Receive quiet hydration reminders.',
+      quietTitle: 'Quiet hours',
+      quietDescription: 'No hydration reminders during this time.',
+      quietStart: 'From',
+      quietEnd: 'To',
+      quietSave: 'Save',
+      quietInvalid: 'Use 24-hour time, e.g. 22:00.',
+      quietSummary: 'Paused from {start} to {end}',
       systemTitle: 'System settings',
       systemDescription: 'Language, appearance, backups, and app information.',
       systemEntryDescription: 'Language, appearance, backup, etc.',
@@ -473,6 +495,13 @@ export default function SettingsScreen() {
       apply: '应用',
       reminderTitle: '提醒间隔',
       reminderDescription: '定期收到喝水提醒通知',
+      quietTitle: '勿扰时间段',
+      quietDescription: '这个时间段不会收到喝水提醒。',
+      quietStart: '开始',
+      quietEnd: '结束',
+      quietSave: '保存',
+      quietInvalid: '请使用 24 小时制，例如 22:00。',
+      quietSummary: '{start} 到 {end} 暂停提醒',
       systemTitle: '系统设置',
       systemDescription: '设置语言、外观、数据备份和应用信息。',
       systemEntryDescription: '语言、外观、备份等',
@@ -514,6 +543,11 @@ export default function SettingsScreen() {
       cupSingle: '约 {count} 杯水（每杯 250ml）',
       cupRange: '约 {min}-{max} 杯水（每杯 250ml）',
     };
+
+  React.useEffect(() => {
+    setQuietStartInput(settings.reminderQuietStart);
+    setQuietEndInput(settings.reminderQuietEnd);
+  }, [settings.reminderQuietEnd, settings.reminderQuietStart]);
   const localizedActivityLevels = React.useMemo(
     () => ACTIVITY_LEVELS.map((option) => ({
       ...option,
@@ -542,6 +576,12 @@ export default function SettingsScreen() {
     ? DAILY_GOALS
     : [...DAILY_GOALS, settings.dailyGoal];
 
+  const isQuietStartValid = isValidTimeInput(quietStartInput);
+  const isQuietEndValid = isValidTimeInput(quietEndInput);
+  const isQuietWindowValid = isQuietStartValid && isQuietEndValid;
+  const quietSummary = copy.quietSummary
+    .replace('{start}', quietStartInput || '--:--')
+    .replace('{end}', quietEndInput || '--:--');
   const parsedWeightKg = Number.parseFloat(weightKg);
   const isWeightValid = Number.isFinite(parsedWeightKg) && parsedWeightKg > 0;
   const selectedActivity = ACTIVITY_LEVELS.find((option) => option.value === activityLevel) ?? ACTIVITY_LEVELS[0];
@@ -669,6 +709,16 @@ export default function SettingsScreen() {
     setCustomCupSize('');
   };
 
+  const saveQuietWindow = () => {
+    if (!isQuietWindowValid) {
+      return;
+    }
+
+    updateSettings({
+      reminderQuietStart: quietStartInput,
+      reminderQuietEnd: quietEndInput,
+    });
+  };
   return (
     <ScrollView
       style={[styles.container, { paddingTop: insets.top }]}
@@ -791,6 +841,69 @@ export default function SettingsScreen() {
               />
             );
           })}
+        </View>
+        <View style={styles.quietSection}>
+          <View style={styles.quietHeader}>
+            <View style={styles.quietTitleRow}>
+              <Feather name="moon" size={15} color={colors.textSecondary} />
+              <Text style={styles.quietTitle}>{copy.quietTitle}</Text>
+            </View>
+            <Text style={styles.quietSummary}>{quietSummary}</Text>
+          </View>
+          <Text style={styles.quietDescription}>{copy.quietDescription}</Text>
+          <View style={styles.quietTimeRow}>
+            <View style={styles.quietTimeField}>
+              <Text style={styles.quietTimeLabel}>{copy.quietStart}</Text>
+              <TextInput
+                value={quietStartInput}
+                onChangeText={(value) => setQuietStartInput(formatTimeInput(value))}
+                keyboardType="number-pad"
+                maxLength={5}
+                placeholder="22:00"
+                placeholderTextColor={colors.textSecondary}
+                style={[
+                  styles.quietTimeInput,
+                  !isQuietStartValid && styles.quietTimeInputInvalid,
+                ]}
+              />
+            </View>
+            <View style={styles.quietTimeField}>
+              <Text style={styles.quietTimeLabel}>{copy.quietEnd}</Text>
+              <TextInput
+                value={quietEndInput}
+                onChangeText={(value) => setQuietEndInput(formatTimeInput(value))}
+                keyboardType="number-pad"
+                maxLength={5}
+                placeholder="08:00"
+                placeholderTextColor={colors.textSecondary}
+                style={[
+                  styles.quietTimeInput,
+                  !isQuietEndValid && styles.quietTimeInputInvalid,
+                ]}
+              />
+            </View>
+            <SoftPressable
+              onPress={saveQuietWindow}
+              disabled={!isQuietWindowValid}
+              style={({ pressed }) => [
+                styles.quietSaveButton,
+                pressed && isQuietWindowValid && styles.saveButtonPressed,
+                !isQuietWindowValid && styles.saveButtonDisabled,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.quietSaveText,
+                  !isQuietWindowValid && styles.saveButtonTextDisabled,
+                ]}
+              >
+                {copy.quietSave}
+              </Text>
+            </SoftPressable>
+          </View>
+          {!isQuietWindowValid ? (
+            <Text style={styles.quietInvalidText}>{copy.quietInvalid}</Text>
+          ) : null}
         </View>
       </View>
       {/* 系统设置 */}
@@ -1279,6 +1392,91 @@ function createStyles(colors: typeof Theme.colors) {
   chipGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  quietSection: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    marginTop: 8,
+    padding: 12,
+    gap: 10,
+  },
+  quietHeader: {
+    gap: 4,
+  },
+  quietTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  quietTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  quietSummary: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  quietDescription: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  quietTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  quietTimeField: {
+    flex: 1,
+    gap: 6,
+  },
+  quietTimeLabel: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  quietTimeInput: {
+    minHeight: 42,
+    borderRadius: Theme.radius.input,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  quietTimeInputInvalid: {
+    borderColor: colors.primary,
+  },
+  quietSaveButton: {
+    minHeight: 42,
+    minWidth: 64,
+    borderRadius: Theme.radius.button,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  quietSaveText: {
+    color: colors.surface,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 13,
+  },
+  quietInvalidText: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
   },
   estimatePill: {
     minHeight: 30,

@@ -25,6 +25,8 @@ export interface WaterSettings {
   cupSize: number;
   reminderInterval: number;
   reminderEnabled: boolean;
+  reminderQuietStart: string;
+  reminderQuietEnd: string;
   language: LanguagePreference;
   appearance: AppearancePreference;
   exportDirectoryUri?: string;
@@ -35,6 +37,8 @@ export const DEFAULT_SETTINGS: WaterSettings = {
   cupSize: 250,
   reminderInterval: 60,
   reminderEnabled: true,
+  reminderQuietStart: '22:00',
+  reminderQuietEnd: '08:00',
   language: 'zh',
   appearance: 'system',
   exportDirectoryUri: '',

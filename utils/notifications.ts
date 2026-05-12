@@ -4,7 +4,7 @@
  * 为什么用 expo-notifications？
  * - 它是 Expo 官方的通知库，支持本地定时通知
  * - 替代原生 Android 的 WorkManager，但使用方式更简单
- * - 支持在后台按间隔重复推送通知
+ * - 可以把提醒提前注册到手机系统，App 不在前台时也能收到本地通知
  *
  * 通知文案设计原则：
  * - 语气温暖平和，像朋友的轻声提醒
@@ -17,6 +17,17 @@ import type * as ExpoNotifications from 'expo-notifications';
 import type { LanguagePreference } from '@/utils/storage';
 
 type NotificationsModule = typeof ExpoNotifications;
+
+type ReminderScheduleOptions = {
+  intervalMinutes: number;
+  language?: LanguagePreference;
+  quietStart?: string;
+  quietEnd?: string;
+};
+
+const MINUTES_PER_DAY = 24 * 60;
+const DEFAULT_QUIET_START = '22:00';
+const DEFAULT_QUIET_END = '08:00';
 
 /** 温暖的提醒文案集合 */
 const REMINDER_MESSAGES: Record<LanguagePreference, { title: string; body: string }[]> = {
@@ -46,6 +57,67 @@ async function getNotifications(): Promise<NotificationsModule | null> {
   }
 
   return import('expo-notifications');
+}
+
+function parseTimeToMinutes(value: string | undefined, fallback: string): number {
+  const match = (value ?? fallback).match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  const safeMatch = match ?? fallback.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+
+  if (!safeMatch) {
+    return 0;
+  }
+
+  return Number(safeMatch[1]) * 60 + Number(safeMatch[2]);
+}
+
+function isWithinQuietWindow(minuteOfDay: number, quietStart: number, quietEnd: number): boolean {
+  if (quietStart === quietEnd) {
+    return false;
+  }
+
+  if (quietStart < quietEnd) {
+    return minuteOfDay >= quietStart && minuteOfDay < quietEnd;
+  }
+
+  return minuteOfDay >= quietStart || minuteOfDay < quietEnd;
+}
+
+function toTimeParts(minuteOfDay: number): { hour: number; minute: number } {
+  const normalized = ((minuteOfDay % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  return {
+    hour: Math.floor(normalized / 60),
+    minute: normalized % 60,
+  };
+}
+
+function buildReminderTimes(intervalMinutes: number, quietStartValue?: string, quietEndValue?: string): number[] {
+  const safeInterval = Math.max(1, Math.round(intervalMinutes));
+  const quietStart = parseTimeToMinutes(quietStartValue, DEFAULT_QUIET_START);
+  const quietEnd = parseTimeToMinutes(quietEndValue, DEFAULT_QUIET_END);
+  const firstReminder = quietStart === quietEnd ? 0 : quietEnd;
+  const times: number[] = [];
+  const seen = new Set<number>();
+
+  for (let elapsed = 0; elapsed < MINUTES_PER_DAY; elapsed += safeInterval) {
+    const minuteOfDay = (firstReminder + elapsed) % MINUTES_PER_DAY;
+
+    if (seen.has(minuteOfDay)) {
+      continue;
+    }
+
+    seen.add(minuteOfDay);
+
+    if (!isWithinQuietWindow(minuteOfDay, quietStart, quietEnd)) {
+      times.push(minuteOfDay);
+    }
+  }
+
+  return times.sort((a, b) => a - b);
+}
+
+function pickReminderMessage(language: LanguagePreference): { title: string; body: string } {
+  const messages = REMINDER_MESSAGES[language];
+  return messages[Math.floor(Math.random() * messages.length)];
 }
 
 /**
@@ -100,35 +172,47 @@ export async function requestPermissions(): Promise<boolean> {
 }
 
 /**
- * 设定定时喝水提醒
- * @param intervalMinutes 提醒间隔（分钟）
+ * 设定喝水提醒。
+ *
+ * 为什么不再用一个无限循环的 interval 通知？
+ * 因为 interval 通知无法避开睡眠时间。这里会把可提醒时间段内的每个时间点
+ * 注册为“每天重复”的系统通知，例如 08:00、09:00……21:00。
  */
-export async function scheduleWaterReminder(intervalMinutes: number, language: LanguagePreference = 'zh'): Promise<void> {
+export async function scheduleWaterReminder(options: ReminderScheduleOptions): Promise<void> {
   const Notifications = await getNotifications();
   if (!Notifications) {
     return;
   }
 
-  // 先取消所有已有的提醒，避免重复
+  const {
+    intervalMinutes,
+    language = 'zh',
+    quietStart = DEFAULT_QUIET_START,
+    quietEnd = DEFAULT_QUIET_END,
+  } = options;
+
   await cancelAllReminders();
 
-  // 随机选一条温暖的提醒文案
-  const messages = REMINDER_MESSAGES[language];
-  const message = messages[Math.floor(Math.random() * messages.length)];
+  const reminderTimes = buildReminderTimes(intervalMinutes, quietStart, quietEnd);
 
-  // 设定重复通知
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: message.title,
-      body: message.body,
-      sound: false,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: intervalMinutes * 60,
-      repeats: true,
-    },
-  });
+  await Promise.all(reminderTimes.map((minuteOfDay) => {
+    const message = pickReminderMessage(language);
+    const { hour, minute } = toTimeParts(minuteOfDay);
+
+    return Notifications.scheduleNotificationAsync({
+      content: {
+        title: message.title,
+        body: message.body,
+        sound: false,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        channelId: 'water-reminders',
+        hour,
+        minute,
+      },
+    });
+  }));
 }
 
 /** 取消所有已安排的提醒 */
