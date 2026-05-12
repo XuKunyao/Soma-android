@@ -21,6 +21,8 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useAppTheme';
+import { useWater } from '@/contexts/WaterContext';
 
 interface WaterLogItemProps {
   amount: number;       // 饮水量 (ml)
@@ -45,6 +47,10 @@ function DeleteAction({
   progress: SharedValue<number>;
   onDelete?: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const { state } = useWater();
+  const deleteLabel = state.settings.language === 'en' ? 'Delete' : '删除';
   const actionStyle = useAnimatedStyle(() => {
     const clampedProgress = Math.min(progress.value, 1.08);
 
@@ -86,8 +92,8 @@ function DeleteAction({
             pressed && styles.deleteActionPressed,
           ]}
         >
-          <Feather name="trash-2" size={17} color={Theme.colors.surface} />
-          <Text style={styles.deleteText}>删除</Text>
+          <Feather name="trash-2" size={17} color={colors.surface} />
+          <Text style={styles.deleteText}>{deleteLabel}</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -101,6 +107,8 @@ export function WaterLogItem({
   onOpen,
   onPressItem,
 }: WaterLogItemProps) {
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const swipeableRef = React.useRef<SwipeableMethods>(null);
   const renderRightActions = (progress: SharedValue<number>) => (
     <DeleteAction progress={progress} onDelete={onDelete} />
@@ -130,7 +138,7 @@ export function WaterLogItem({
         ]}
       >
         <View style={styles.left}>
-          <Feather name="droplet" size={16} color={Theme.colors.primary} />
+          <Feather name="droplet" size={16} color={colors.primary} />
           <Text style={styles.amount}>{amount} ml</Text>
         </View>
         <Text style={styles.time}>{formatTime(timestamp)}</Text>
@@ -139,19 +147,20 @@ export function WaterLogItem({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   swipeContainer: {
-    backgroundColor: Theme.colors.dangerSoft,
+    backgroundColor: colors.dangerSoft,
   },
   container: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Theme.colors.border,
+    borderBottomColor: colors.border,
   },
   pressed: {
     opacity: 0.6,
@@ -164,18 +173,18 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 16,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.text,
+    color: colors.text,
   },
   time: {
     fontSize: 14,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   deleteActionWrap: {
     width: 82,
-    backgroundColor: Theme.colors.dangerSoft,
+    backgroundColor: colors.dangerSoft,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Theme.colors.border,
+    borderBottomColor: colors.border,
     alignItems: 'stretch',
     justifyContent: 'center',
   },
@@ -184,17 +193,18 @@ const styles = StyleSheet.create({
   },
   deleteAction: {
     flex: 1,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
   deleteActionPressed: {
-    backgroundColor: Theme.colors.primaryPressed,
+    backgroundColor: colors.primaryPressed,
   },
   deleteText: {
-    color: Theme.colors.surface,
+    color: colors.surface,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
   },
-});
+  });
+}

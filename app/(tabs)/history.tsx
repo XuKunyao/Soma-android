@@ -16,10 +16,12 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import {
   getTodayKey,
   loadWaterHistory,
+  type LanguagePreference,
   type WaterDayRecord,
 } from '@/utils/storage';
 
@@ -45,12 +47,21 @@ interface PeriodData {
   };
 }
 
-const PERIODS: { label: string; value: PeriodMode }[] = [
-  { label: '日', value: 'day' },
-  { label: '周', value: 'week' },
-  { label: '月', value: 'month' },
-  { label: '年', value: 'year' },
-];
+function getPeriods(language: LanguagePreference): { label: string; value: PeriodMode }[] {
+  return language === 'en'
+    ? [
+      { label: 'Day', value: 'day' },
+      { label: 'Week', value: 'week' },
+      { label: 'Month', value: 'month' },
+      { label: 'Year', value: 'year' },
+    ]
+    : [
+      { label: '日', value: 'day' },
+      { label: '周', value: 'week' },
+      { label: '月', value: 'month' },
+      { label: '年', value: 'year' },
+    ];
+}
 
 function toDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -72,20 +83,28 @@ function formatDayLabel(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-function formatFullDayLabel(date: Date): string {
+function formatFullDayLabel(date: Date, language: LanguagePreference): string {
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+  }
+
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
-function formatDateRange(startDate: Date, endDate: Date): string {
-  const start = formatFullDayLabel(startDate);
-  const end = formatFullDayLabel(endDate);
+function formatDateRange(startDate: Date, endDate: Date, language: LanguagePreference): string {
+  const start = formatFullDayLabel(startDate, language);
+  const end = formatFullDayLabel(endDate, language);
 
   return start === end ? start : `${start} - ${end}`;
 }
 
-function formatDiff(value: number): string {
+function formatDiff(value: number, language: LanguagePreference): string {
   if (value === 0) {
-    return '刚好达成';
+    return language === 'en' ? 'On target' : '刚好达成';
+  }
+
+  if (language === 'en') {
+    return value > 0 ? `Over by ${value}ml` : `${Math.abs(value)}ml short`;
   }
 
   return value > 0 ? `超出 ${value}ml` : `少 ${Math.abs(value)}ml`;
@@ -149,7 +168,7 @@ function buildCurrentMonthWeekPoints(recordMap: Map<string, WaterDayRecord>, fal
   return weekPoints;
 }
 
-function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number): TrendPoint[] {
+function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number, language: LanguagePreference): TrendPoint[] {
   const months = getYearMonths();
 
   return months.map((date) => {
@@ -165,18 +184,18 @@ function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number): Tren
 
     return {
       key: monthKey,
-      label: `${date.getMonth() + 1}月`,
+      label: new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { month: 'short' }).format(date),
       total,
       goal: savedGoal + missingGoal,
     };
   });
 }
 
-function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number): PeriodData {
+function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number, language: LanguagePreference): PeriodData {
   const recordMap = new Map(records.map((record) => [record.dateKey, record]));
   const today = parseDateKey(getTodayKey());
   const recentDates = getRecentDates(7);
-  const recentRange = formatDateRange(recentDates[0], recentDates[recentDates.length - 1]);
+  const recentRange = formatDateRange(recentDates[0], recentDates[recentDates.length - 1], language);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const yearStart = new Date(today.getFullYear(), 0, 1);
   const monthWeekPoints = buildCurrentMonthWeekPoints(recordMap, fallbackGoal);
@@ -185,9 +204,9 @@ function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: 
     const points = buildDayPoints(recentDates, recordMap, fallbackGoal);
     const today = points[points.length - 1];
     return {
-      title: '今日概览',
-      rangeLabel: `${formatFullDayLabel(parseDateKey(getTodayKey()))} 00:00-23:59`,
-      trendTitle: '近 7 天趋势',
+      title: language === 'en' ? 'Today' : '今日概览',
+      rangeLabel: `${formatFullDayLabel(parseDateKey(getTodayKey()), language)} 00:00-23:59`,
+      trendTitle: language === 'en' ? 'Last 7 days' : '近 7 天趋势',
       trendRangeLabel: recentRange,
       points,
       summary: sumPoints([today]),
@@ -197,9 +216,9 @@ function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: 
   if (mode === 'week') {
     const points = buildDayPoints(recentDates, recordMap, fallbackGoal);
     return {
-      title: '近 7 天',
+      title: language === 'en' ? 'Last 7 days' : '近 7 天',
       rangeLabel: recentRange,
-      trendTitle: '每日完成趋势',
+      trendTitle: language === 'en' ? 'Daily trend' : '每日完成趋势',
       trendRangeLabel: recentRange,
       points,
       summary: sumPoints(points),
@@ -208,21 +227,21 @@ function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: 
 
   if (mode === 'month') {
     return {
-      title: '本月汇总',
-      rangeLabel: formatDateRange(monthStart, today),
-      trendTitle: '本月每周的趋势',
-      trendRangeLabel: formatDateRange(monthStart, today),
+      title: language === 'en' ? 'This month' : '本月汇总',
+      rangeLabel: formatDateRange(monthStart, today, language),
+      trendTitle: language === 'en' ? 'Weekly trend this month' : '本月每周的趋势',
+      trendRangeLabel: formatDateRange(monthStart, today, language),
       points: monthWeekPoints,
       summary: sumPoints(monthWeekPoints),
     };
   }
 
-  const points = buildMonthPoints(records, fallbackGoal);
+  const points = buildMonthPoints(records, fallbackGoal, language);
   return {
-    title: '今年汇总',
-    rangeLabel: formatDateRange(yearStart, today),
-    trendTitle: '每月完成趋势',
-    trendRangeLabel: formatDateRange(yearStart, today),
+    title: language === 'en' ? 'This year' : '今年汇总',
+    rangeLabel: formatDateRange(yearStart, today, language),
+    trendTitle: language === 'en' ? 'Monthly trend' : '每月完成趋势',
+    trendRangeLabel: formatDateRange(yearStart, today, language),
     points,
     summary: sumPoints(points),
   };
@@ -238,7 +257,14 @@ function formatPercent(total: number, goal: number): string {
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state } = useWater();
+  const language = state.settings.language;
+  const copy = language === 'en'
+    ? { title: 'Records', subtitle: 'See the rhythm of how you care for yourself', goal: 'Goal', completion: 'Completion', dailyAverage: 'Daily avg', completedDays: 'Days met', emptyTrend: 'Trends will appear after you start recording', recent: 'Recent records', allDay: 'All day · 00:00-23:59', entries: 'records', emptyHistory: 'No history yet' }
+    : { title: '记录', subtitle: '看看身体被照顾的节律', goal: '目标', completion: '完成率', dailyAverage: '日均 ml', completedDays: '达标天数', emptyTrend: '开始记录后，这里会生成趋势', recent: '最近记录', allDay: '全天 · 00:00-23:59', entries: '次记录', emptyHistory: '还没有历史记录' };
+  const periods = React.useMemo(() => getPeriods(language), [language]);
   const [mode, setMode] = React.useState<PeriodMode>('week');
   const [records, setRecords] = React.useState<WaterDayRecord[]>([]);
 
@@ -275,8 +301,8 @@ export default function HistoryScreen() {
   }, [records, state.dateKey, state.settings.dailyGoal, state.todayLogs, state.todayTotal]);
 
   const period = React.useMemo(
-    () => buildPeriod(mode, recordsForView, state.settings.dailyGoal),
-    [mode, recordsForView, state.settings.dailyGoal],
+    () => buildPeriod(mode, recordsForView, state.settings.dailyGoal, language),
+    [language, mode, recordsForView, state.settings.dailyGoal],
   );
   const maxValue = Math.max(
     1,
@@ -294,11 +320,11 @@ export default function HistoryScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.pageTitle}>记录</Text>
-      <Text style={styles.pageSubtitle}>看看身体被照顾的节律</Text>
+      <Text style={styles.pageTitle}>{copy.title}</Text>
+      <Text style={styles.pageSubtitle}>{copy.subtitle}</Text>
 
       <View style={styles.segmented}>
-        {PERIODS.map((periodOption) => {
+        {periods.map((periodOption) => {
           const selected = mode === periodOption.value;
           return (
             <Pressable
@@ -335,12 +361,12 @@ export default function HistoryScreen() {
                 styles.diffPillText,
                 period.summary.diff >= 0 && styles.diffPillTextGood,
               ]}>
-                {formatDiff(period.summary.diff)}
+                {formatDiff(period.summary.diff, language)}
               </Text>
             </View>
           </View>
           <View style={styles.dateBadge}>
-            <Feather name="calendar" size={13} color={Theme.colors.textSecondary} />
+            <Feather name="calendar" size={13} color={colors.textSecondary} />
             <Text style={styles.dateBadgeText}>{period.rangeLabel}</Text>
           </View>
         </View>
@@ -349,22 +375,22 @@ export default function HistoryScreen() {
           <Text style={styles.totalValue}>{period.summary.total}</Text>
           <Text style={styles.totalUnit}>ml</Text>
         </View>
-        <Text style={styles.goalText}>目标 {period.summary.goal} ml</Text>
+        <Text style={styles.goalText}>{copy.goal} {period.summary.goal} ml</Text>
 
         <View style={styles.metricRow}>
           <View style={styles.metricItem}>
             <Text style={styles.metricValue}>{formatPercent(period.summary.total, period.summary.goal)}</Text>
-            <Text style={styles.metricLabel}>完成率</Text>
+            <Text style={styles.metricLabel}>{copy.completion}</Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metricItem}>
             <Text style={styles.metricValue}>{average}</Text>
-            <Text style={styles.metricLabel}>日均 ml</Text>
+            <Text style={styles.metricLabel}>{copy.dailyAverage}</Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metricItem}>
             <Text style={styles.metricValue}>{completedDays}</Text>
-            <Text style={styles.metricLabel}>达标天数</Text>
+            <Text style={styles.metricLabel}>{copy.completedDays}</Text>
           </View>
         </View>
       </View>
@@ -373,10 +399,10 @@ export default function HistoryScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>{period.trendTitle}</Text>
-            <Feather name="bar-chart-2" size={17} color={Theme.colors.textSecondary} />
+            <Feather name="bar-chart-2" size={17} color={colors.textSecondary} />
           </View>
           <View style={styles.dateBadge}>
-            <Feather name="calendar" size={13} color={Theme.colors.textSecondary} />
+            <Feather name="calendar" size={13} color={colors.textSecondary} />
             <Text style={styles.dateBadgeText}>{period.trendRangeLabel}</Text>
           </View>
         </View>
@@ -407,23 +433,23 @@ export default function HistoryScreen() {
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Feather name="calendar" size={22} color={Theme.colors.textSecondary} />
-            <Text style={styles.emptyText}>开始记录后，这里会生成趋势</Text>
+            <Feather name="calendar" size={22} color={colors.textSecondary} />
+            <Text style={styles.emptyText}>{copy.emptyTrend}</Text>
           </View>
         )}
       </View>
 
       <View style={styles.listCard}>
-        <Text style={styles.cardTitle}>最近记录</Text>
+        <Text style={styles.cardTitle}>{copy.recent}</Text>
         {recentRecords.length > 0 ? (
           recentRecords.map((record) => (
             <View key={record.dateKey} style={styles.dayRow}>
               <View>
                 <Text style={styles.dayTitle}>{formatDayLabel(parseDateKey(record.dateKey))}</Text>
                 <View style={styles.dayMetaRow}>
-                  <Text style={styles.dayMeta}>全天 · 00:00-23:59</Text>
+                  <Text style={styles.dayMeta}>{copy.allDay}</Text>
                   <View style={styles.dayDot} />
-                  <Text style={styles.dayMeta}>{record.logs.length} 次记录</Text>
+                  <Text style={styles.dayMeta}>{record.logs.length} {copy.entries}</Text>
                 </View>
               </View>
               <View style={styles.dayValueGroup}>
@@ -432,13 +458,13 @@ export default function HistoryScreen() {
                   styles.dayDiff,
                   record.total >= record.goal && styles.dayDiffGood,
                 ]}>
-                  {formatDiff(record.total - record.goal)}
+                  {formatDiff(record.total - record.goal, language)}
                 </Text>
               </View>
             </View>
           ))
         ) : (
-          <Text style={styles.emptyText}>还没有历史记录</Text>
+          <Text style={styles.emptyText}>{copy.emptyHistory}</Text>
         )}
       </View>
 
@@ -447,10 +473,11 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 24,
@@ -459,11 +486,11 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: Theme.type.pageTitle,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.text,
+    color: colors.text,
     letterSpacing: 0.5,
   },
   pageSubtitle: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 14,
     lineHeight: 20,
@@ -472,7 +499,7 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.full,
     padding: 4,
     marginBottom: 16,
@@ -485,21 +512,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentButtonSelected: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
   segmentButtonPressed: {
     opacity: 0.72,
   },
   segmentText: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 13,
   },
   segmentTextSelected: {
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
   summaryCard: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
     padding: 18,
     marginBottom: 14,
@@ -510,7 +537,7 @@ const styles = StyleSheet.create({
     shadowRadius: Theme.shadow.card.radius,
   },
   chartCard: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
     padding: 18,
     marginBottom: 14,
@@ -521,7 +548,7 @@ const styles = StyleSheet.create({
     shadowRadius: Theme.shadow.card.radius,
   },
   listCard: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
     padding: 18,
     marginBottom: 8,
@@ -543,7 +570,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 16,
     lineHeight: 22,
@@ -553,53 +580,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   dateBadgeText: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 16,
   },
   diffPill: {
-    backgroundColor: Theme.colors.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderRadius: Theme.radius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   diffPillGood: {
-    backgroundColor: Theme.colors.successSoft,
+    backgroundColor: colors.successSoft,
   },
   diffPillText: {
-    color: Theme.colors.primary,
+    color: colors.primary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
   },
   diffPillTextGood: {
-    color: Theme.colors.success,
+    color: colors.success,
   },
   totalRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
   },
   totalValue: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 42,
     lineHeight: 48,
   },
   totalUnit: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
     marginLeft: 6,
     marginBottom: 7,
   },
   goalText: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 19,
@@ -608,7 +635,7 @@ const styles = StyleSheet.create({
   metricRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     marginTop: 16,
     paddingVertical: 12,
@@ -620,16 +647,16 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: StyleSheet.hairlineWidth,
     height: 28,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
   metricValue: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
     lineHeight: 20,
   },
   metricLabel: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 11,
     lineHeight: 15,
@@ -661,19 +688,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     borderRadius: Theme.radius.full,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
   totalBar: {
     width: '70%',
     borderRadius: Theme.radius.full,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
   totalBarDone: {
-    backgroundColor: Theme.colors.success,
+    backgroundColor: colors.success,
   },
   barLabel: {
     minHeight: 14,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 9,
     lineHeight: 12,
@@ -686,7 +713,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyText: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 19,
@@ -697,16 +724,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Theme.colors.border,
+    borderBottomColor: colors.border,
   },
   dayTitle: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
     lineHeight: 19,
   },
   dayMeta: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 17,
@@ -721,25 +748,26 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
   dayValueGroup: {
     alignItems: 'flex-end',
   },
   dayValue: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
     lineHeight: 19,
   },
   dayDiff: {
-    color: Theme.colors.primary,
+    color: colors.primary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 17,
     marginTop: 2,
   },
   dayDiffGood: {
-    color: Theme.colors.success,
+    color: colors.success,
   },
-});
+  });
+}

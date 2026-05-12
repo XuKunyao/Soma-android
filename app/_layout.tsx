@@ -15,17 +15,16 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { useFonts, DMSans_400Regular, DMSans_500Medium } from '@expo-google-fonts/dm-sans';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { WaterProvider, useWater } from '@/contexts/WaterContext';
+import { WaterProvider } from '@/contexts/WaterContext';
 import {
   configureNotifications,
   ensureNotificationChannel,
   requestPermissions,
 } from '@/utils/notifications';
-import { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 // 在字体加载完成前，保持启动屏可见
 SplashScreen.preventAutoHideAsync();
@@ -75,23 +74,17 @@ export default function RootLayout() {
 }
 
 function AppShell() {
-  const systemScheme = useColorScheme();
-  const { state } = useWater();
-  const resolvedScheme = state.settings.appearance === 'system'
-    ? systemScheme
-    : state.settings.appearance;
-  const isDark = resolvedScheme === 'dark';
-  const backgroundColor = isDark ? '#201A16' : Theme.colors.background;
+  const { colors, isDark } = useAppTheme();
 
   useEffect(() => {
-    SystemUI.setBackgroundColorAsync(backgroundColor);
-  }, [backgroundColor]);
+    SystemUI.setBackgroundColorAsync(colors.background);
+  }, [colors.background]);
 
   return (
     <>
       <Stack
         screenOptions={{
-          contentStyle: { backgroundColor },
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

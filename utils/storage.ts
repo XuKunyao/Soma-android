@@ -43,6 +43,7 @@ export interface WaterSettings {
   reminderEnabled: boolean;   // 是否开启提醒
   language: LanguagePreference;       // 界面语言
   appearance: AppearancePreference;   // 外观模式
+  hapticsEnabled: boolean;     // 是否开启触感反馈
 }
 
 /** 默认设置值 */
@@ -53,6 +54,7 @@ export const DEFAULT_SETTINGS: WaterSettings = {
   reminderEnabled: true,
   language: 'zh',
   appearance: 'system',
+  hapticsEnabled: true,
 };
 
 const WATER_LOG_PREFIX = 'water_logs_';

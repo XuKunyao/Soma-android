@@ -40,6 +40,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 
 /** 可选的单次饮水量 */
@@ -47,12 +48,12 @@ const CUP_SIZES = [100, 150, 200, 250, 300, 400, 500];
 
 /** 可选的提醒间隔（分钟） */
 const INTERVALS = [
-  { label: '关闭', value: 0 },
-  { label: '30 分钟', value: 30 },
-  { label: '1 小时', value: 60 },
-  { label: '1.5 小时', value: 90 },
-  { label: '2 小时', value: 120 },
-  { label: '3 小时', value: 180 },
+  { label: '关闭', labelEn: 'Off', value: 0 },
+  { label: '30 分钟', labelEn: '30 min', value: 30 },
+  { label: '1 小时', labelEn: '1 hour', value: 60 },
+  { label: '1.5 小时', labelEn: '1.5 hours', value: 90 },
+  { label: '2 小时', labelEn: '2 hours', value: 120 },
+  { label: '3 小时', labelEn: '3 hours', value: 180 },
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -138,31 +139,41 @@ function SoftPressable({
 const ACTIVITY_LEVELS: {
   value: ActivityLevel;
   title: string;
+  titleEn: string;
   subtitle: string;
+  subtitleEn: string;
   extraMl: number;
 }[] = [
   {
     value: 'sedentary',
     title: '久坐办公',
+    titleEn: 'Sedentary',
     subtitle: '较少运动',
+    subtitleEn: 'Less movement',
     extraMl: 0,
   },
   {
     value: 'light',
     title: '轻度活动',
+    titleEn: 'Light activity',
     subtitle: '偶尔运动',
+    subtitleEn: 'Occasional exercise',
     extraMl: 200,
   },
   {
     value: 'moderate',
     title: '中度活动',
+    titleEn: 'Moderate',
     subtitle: '经常运动',
+    subtitleEn: 'Regular exercise',
     extraMl: 400,
   },
   {
     value: 'high',
     title: '高强度',
+    titleEn: 'High intensity',
     subtitle: '高强度运动',
+    subtitleEn: 'Intense training',
     extraMl: 700,
   },
 ];
@@ -170,36 +181,45 @@ const ACTIVITY_LEVELS: {
 const SEX_PROFILES: {
   value: SexProfile;
   label: string;
+  labelEn: string;
   baseDrinkMl: number;
   referenceWeightKg: number;
 }[] = [
-  { value: 'unspecified', label: '未指定', baseDrinkMl: 1600, referenceWeightKg: 60 },
-  { value: 'female', label: '女性', baseDrinkMl: 1500, referenceWeightKg: 55 },
-  { value: 'male', label: '男性', baseDrinkMl: 1700, referenceWeightKg: 65 },
+  { value: 'unspecified', label: '未指定', labelEn: 'Not specified', baseDrinkMl: 1600, referenceWeightKg: 60 },
+  { value: 'female', label: '女性', labelEn: 'Female', baseDrinkMl: 1500, referenceWeightKg: 55 },
+  { value: 'male', label: '男性', labelEn: 'Male', baseDrinkMl: 1700, referenceWeightKg: 65 },
 ];
 
 const DIET_PROFILES: {
   value: DietProfile;
   title: string;
+  titleEn: string;
   subtitle: string;
+  subtitleEn: string;
   adjustmentMl: number;
 }[] = [
   {
     value: 'hydrating',
     title: '清淡多蔬果',
+    titleEn: 'Light and fresh',
     subtitle: '食物含水较多',
+    subtitleEn: 'More water-rich foods',
     adjustmentMl: -100,
   },
   {
     value: 'balanced',
     title: '均衡日常',
+    titleEn: 'Balanced',
     subtitle: '正常三餐',
+    subtitleEn: 'Regular meals',
     adjustmentMl: 0,
   },
   {
     value: 'salty',
     title: '偏咸外卖多',
+    titleEn: 'Salty or takeout',
     subtitle: '盐分摄入较高',
+    subtitleEn: 'Higher salt intake',
     adjustmentMl: 200,
   },
 ];
@@ -217,6 +237,9 @@ function Chip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const chipStyles = React.useMemo(() => createChipStyles(colors), [colors]);
+
   return (
     <SoftPressable
       onPress={onPress}
@@ -246,6 +269,9 @@ function ActivityCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SoftPressable
       onPress={onPress}
@@ -290,6 +316,9 @@ function SmallOptionCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SoftPressable
       onPress={onPress}
@@ -321,33 +350,37 @@ function SmallOptionCard({
   );
 }
 
-const chipStyles = StyleSheet.create({
+function createChipStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: Theme.radius.full,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     marginRight: 8,
     marginBottom: 8,
   },
   chipSelected: {
-    backgroundColor: Theme.colors.primarySoft,
-    borderColor: Theme.colors.primaryBorder,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBorder,
   },
   chipText: {
     fontSize: 14,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   chipTextSelected: {
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
-});
+  });
+}
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state, updateSettings } = useWater();
   const { settings } = state;
   const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
@@ -357,29 +390,109 @@ export default function SettingsScreen() {
   const [sexProfile, setSexProfile] = React.useState<SexProfile>('unspecified');
   const [dietProfile, setDietProfile] = React.useState<DietProfile>('balanced');
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
-  const systemCopy = settings.language === 'en'
+  const language = settings.language;
+  const isEnglish = language === 'en';
+  const copy = isEnglish
     ? {
-      systemTitle: 'System',
-      systemDescription: 'Language, appearance, and app information.',
+      pageTitle: 'Settings',
+      dailyGoalTitle: 'Daily goal',
+      customGoal: 'Custom goal',
+      dailyGoalDescription: 'Estimate a goal from body weight and activity',
+      cupSizeTitle: 'Glass size',
+      cupSizeDescription: 'Amount recorded when you tap “Drank a glass”.',
+      customCup: 'Custom:',
+      apply: 'Apply',
+      reminderTitle: 'Reminder interval',
+      reminderDescription: 'Receive quiet hydration reminders.',
+      systemTitle: 'System settings',
+      systemDescription: 'Language, appearance, feedback, and app information.',
       language: 'Language',
       appearance: 'Appearance',
+      haptics: 'Haptic feedback',
+      hapticsDescription: 'Subtle touch response for supported controls.',
+      on: 'On',
+      off: 'Off',
+      dataTitle: 'Data storage',
+      dataDescription: 'Records and preferences stay on this device.',
       aboutTitle: 'About Soma',
       aboutDescription: 'A quiet hydration reminder shaped for daily care.',
       author: 'Author',
       version: 'Version',
       currentName: 'XuKunyao',
+      modalTitle: 'Custom hydration goal',
+      modalDescription: 'Estimate a water goal for today’s records and reminders.',
+      close: 'Close',
+      bodyData: 'Body data',
+      weight: 'Weight',
+      sex: 'Sex reference',
+      activity: 'Daily activity',
+      diet: 'Diet pattern',
+      result: 'Result:',
+      resultDescription: 'Recommended daily water goal from your data',
+      unitPerDay: 'ml / day',
+      missingWeight: 'Enter weight to see the result',
+      applyGoal: 'Apply this goal',
+      cupSingle: 'About {count} glasses (250ml each)',
+      cupRange: 'About {min}-{max} glasses (250ml each)',
     }
     : {
+      pageTitle: '设置',
+      dailyGoalTitle: '每日饮水目标',
+      customGoal: '自定义目标',
+      dailyGoalDescription: '根据个人体重和活动量估算目标',
+      cupSizeTitle: '单次饮水量',
+      cupSizeDescription: '每次点击“喝了一杯”时记录的水量',
+      customCup: '自定义杯量：',
+      apply: '应用',
+      reminderTitle: '提醒间隔',
+      reminderDescription: '定期收到喝水提醒通知',
       systemTitle: '系统设置',
-      systemDescription: '设置语言、外观和应用信息。',
+      systemDescription: '设置语言、外观、反馈和应用信息。',
       language: '语言',
       appearance: '外观',
+      haptics: '触感反馈',
+      hapticsDescription: '为支持的控件提供轻微触感。',
+      on: '开启',
+      off: '关闭',
+      dataTitle: '数据存储',
+      dataDescription: '记录和偏好保存在当前设备本地。',
       aboutTitle: '关于 Soma',
       aboutDescription: '一款安静克制的喝水提醒工具。',
       author: '作者',
       version: '版本',
       currentName: 'XuKunyao',
+      modalTitle: '自定义喝水目标',
+      modalDescription: '估算适合今天记录和提醒的喝水量',
+      close: '关闭',
+      bodyData: '身体数据',
+      weight: '体重',
+      sex: '性别参考',
+      activity: '每日活动量',
+      diet: '饮食习惯',
+      result: '计算结果：',
+      resultDescription: '根据你的数据推荐每日饮水量',
+      unitPerDay: 'ml / 天',
+      missingWeight: '请输入体重后查看结果',
+      applyGoal: '应用这个目标',
+      cupSingle: '约 {count} 杯水（每杯 250ml）',
+      cupRange: '约 {min}-{max} 杯水（每杯 250ml）',
     };
+  const localizedActivityLevels = React.useMemo(
+    () => ACTIVITY_LEVELS.map((option) => ({
+      ...option,
+      title: isEnglish ? option.titleEn : option.title,
+      subtitle: isEnglish ? option.subtitleEn : option.subtitle,
+    })),
+    [isEnglish],
+  );
+  const localizedDietProfiles = React.useMemo(
+    () => DIET_PROFILES.map((option) => ({
+      ...option,
+      title: isEnglish ? option.titleEn : option.title,
+      subtitle: isEnglish ? option.subtitleEn : option.subtitle,
+    })),
+    [isEnglish],
+  );
 
   const parsedCustomCupSize = Number.parseInt(customCupSize, 10);
   const isCustomCupSizeValid =
@@ -417,8 +530,8 @@ export default function SettingsScreen() {
   const cupCountMin = estimatedDailyGoal > 0 ? Math.max(1, Math.floor(estimatedDailyGoal / 250)) : 0;
   const cupCountMax = estimatedDailyGoal > 0 ? Math.max(cupCountMin, Math.ceil(estimatedDailyGoal / 250)) : 0;
   const cupEstimateText = cupCountMin === cupCountMax
-    ? `约 ${cupCountMin} 杯水（每杯 250ml）`
-    : `约 ${cupCountMin}-${cupCountMax} 杯水（每杯 250ml）`;
+    ? copy.cupSingle.replace('{count}', String(cupCountMin))
+    : copy.cupRange.replace('{min}', String(cupCountMin)).replace('{max}', String(cupCountMax));
 
   const sanitizeDecimal = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, '');
@@ -455,12 +568,12 @@ export default function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* 页面标题 */}
-      <Text style={styles.pageTitle}>设置</Text>
+      <Text style={styles.pageTitle}>{copy.pageTitle}</Text>
 
       {/* 每日饮水目标 */}
       <View style={styles.card}>
         <View style={styles.settingHeader}>
-          <Text style={[styles.cardTitle, styles.headerCardTitle]}>每日饮水目标</Text>
+          <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.dailyGoalTitle}</Text>
           <SoftPressable
             onPress={() => setIsGoalModalVisible(true)}
             style={({ pressed }) => [
@@ -468,12 +581,12 @@ export default function SettingsScreen() {
               pressed && styles.estimateButtonPressed,
             ]}
           >
-            <Text style={styles.estimatePillText}>自定义目标</Text>
-            <Feather name="chevron-right" size={13} color={Theme.colors.primary} />
+            <Text style={styles.estimatePillText}>{copy.customGoal}</Text>
+            <Feather name="chevron-right" size={13} color={colors.primary} />
           </SoftPressable>
         </View>
         <Text style={styles.cardDescription}>
-          根据个人体重和活动量估算目标
+          {copy.dailyGoalDescription}
         </Text>
         <View style={styles.chipGroup}>
           {dailyGoalOptions.map((goal) => (
@@ -489,9 +602,9 @@ export default function SettingsScreen() {
 
       {/* 单次饮水量 */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>单次饮水量</Text>
+        <Text style={styles.cardTitle}>{copy.cupSizeTitle}</Text>
         <Text style={styles.cardDescription}>
-          每次点击“喝了一杯”时记录的水量
+          {copy.cupSizeDescription}
         </Text>
         <View style={styles.chipGroup}>
           {cupSizeOptions.map((size) => (
@@ -505,7 +618,7 @@ export default function SettingsScreen() {
         </View>
         <View style={styles.customSection}>
           <View style={styles.customCopy}>
-            <Text style={styles.customTitle}>自定义杯量：</Text>
+            <Text style={styles.customTitle}>{copy.customCup}</Text>
           </View>
           <View style={styles.customControl}>
             <View style={styles.customInputShell}>
@@ -514,7 +627,7 @@ export default function SettingsScreen() {
                 onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
                 placeholder="250"
-                placeholderTextColor={Theme.colors.textSecondary}
+                placeholderTextColor={colors.textSecondary}
                 style={styles.customInput}
               />
               <Text style={styles.inputUnit}>ml</Text>
@@ -534,7 +647,7 @@ export default function SettingsScreen() {
                   !isCustomCupSizeValid && styles.saveButtonTextDisabled,
                 ]}
               >
-                应用
+                {copy.apply}
               </Text>
             </SoftPressable>
           </View>
@@ -543,9 +656,9 @@ export default function SettingsScreen() {
 
       {/* 提醒间隔 */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>提醒间隔</Text>
+        <Text style={styles.cardTitle}>{copy.reminderTitle}</Text>
         <Text style={styles.cardDescription}>
-          定期收到喝水提醒通知
+          {copy.reminderDescription}
         </Text>
         <View style={styles.chipGroup}>
           {INTERVALS.map((interval) => {
@@ -555,7 +668,7 @@ export default function SettingsScreen() {
             return (
               <Chip
                 key={interval.value}
-                label={interval.label}
+                label={isEnglish ? interval.labelEn : interval.label}
                 selected={isSelected}
                 onPress={() => {
                   if (interval.value === 0) {
@@ -574,13 +687,13 @@ export default function SettingsScreen() {
       </View>
       {/* 系统设置 */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>{systemCopy.systemTitle}</Text>
-        <Text style={styles.cardDescription}>{systemCopy.systemDescription}</Text>
+        <Text style={styles.cardTitle}>{copy.systemTitle}</Text>
+        <Text style={styles.cardDescription}>{copy.systemDescription}</Text>
 
         <View style={styles.systemRow}>
           <View style={styles.systemLabelRow}>
-            <Feather name="globe" size={16} color={Theme.colors.textSecondary} />
-            <Text style={styles.systemLabel}>{systemCopy.language}</Text>
+            <Feather name="globe" size={16} color={colors.textSecondary} />
+            <Text style={styles.systemLabel}>{copy.language}</Text>
           </View>
           <View style={styles.systemChipGroup}>
             {LANGUAGE_OPTIONS.map((option) => (
@@ -598,11 +711,11 @@ export default function SettingsScreen() {
 
         <View style={styles.systemRow}>
           <View style={styles.systemLabelRow}>
-            <Feather name="moon" size={16} color={Theme.colors.textSecondary} />
-            <Text style={styles.systemLabel}>{systemCopy.appearance}</Text>
+            <Feather name="moon" size={16} color={colors.textSecondary} />
+            <Text style={styles.systemLabel}>{copy.appearance}</Text>
           </View>
           <View style={styles.systemChipGroup}>
-            {APPEARANCE_OPTIONS[settings.language].map((option) => (
+            {APPEARANCE_OPTIONS[language].map((option) => (
               <Chip
                 key={option.value}
                 label={option.label}
@@ -612,19 +725,55 @@ export default function SettingsScreen() {
             ))}
           </View>
         </View>
-      </View>
 
-      {/* 关于 */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{systemCopy.aboutTitle}</Text>
-        <Text style={styles.cardDescription}>{systemCopy.aboutDescription}</Text>
-        <View style={styles.aboutInfoRow}>
-          <Text style={styles.aboutInfoLabel}>{systemCopy.author}</Text>
-          <Text style={styles.aboutInfoValue}>{systemCopy.currentName}</Text>
+        <View style={styles.systemDivider} />
+
+        <View style={styles.systemRow}>
+          <View style={styles.systemLabelRow}>
+            <Feather name="smartphone" size={16} color={colors.textSecondary} />
+            <Text style={styles.systemLabel}>{copy.haptics}</Text>
+          </View>
+          <Text style={styles.systemDescriptionText}>{copy.hapticsDescription}</Text>
+          <View style={styles.systemChipGroup}>
+            <Chip
+              label={copy.on}
+              selected={settings.hapticsEnabled}
+              onPress={() => updateSettings({ hapticsEnabled: true })}
+            />
+            <Chip
+              label={copy.off}
+              selected={!settings.hapticsEnabled}
+              onPress={() => updateSettings({ hapticsEnabled: false })}
+            />
+          </View>
         </View>
-        <View style={styles.aboutInfoRow}>
-          <Text style={styles.aboutInfoLabel}>{systemCopy.version}</Text>
-          <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
+
+        <View style={styles.systemDivider} />
+
+        <View style={styles.systemRow}>
+          <View style={styles.systemLabelRow}>
+            <Feather name="database" size={16} color={colors.textSecondary} />
+            <Text style={styles.systemLabel}>{copy.dataTitle}</Text>
+          </View>
+          <Text style={styles.systemDescriptionText}>{copy.dataDescription}</Text>
+        </View>
+
+        <View style={styles.systemDivider} />
+
+        <View style={styles.systemRow}>
+          <View style={styles.systemLabelRow}>
+            <Feather name="info" size={16} color={colors.textSecondary} />
+            <Text style={styles.systemLabel}>{copy.aboutTitle}</Text>
+          </View>
+          <Text style={styles.systemDescriptionText}>{copy.aboutDescription}</Text>
+          <View style={styles.aboutInfoRow}>
+            <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
+            <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
+          </View>
+          <View style={styles.aboutInfoRow}>
+            <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
+            <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
+          </View>
         </View>
       </View>
 
@@ -662,21 +811,21 @@ export default function SettingsScreen() {
           >
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderCopy}>
-                <Text style={styles.modalTitle}>自定义喝水目标</Text>
+                <Text style={styles.modalTitle}>{copy.modalTitle}</Text>
                 <Text style={styles.modalDescription}>
-                  估算适合今天记录和提醒的喝水量
+                  {copy.modalDescription}
                 </Text>
               </View>
               <SoftPressable
                 onPress={() => setIsGoalModalVisible(false)}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={copy.close}
                 style={({ pressed }) => [
                   styles.closeButton,
                   pressed && styles.closeButtonPressed,
                 ]}
               >
-                <Feather name="x" size={21} color={Theme.colors.textSecondary} />
+                <Feather name="x" size={21} color={colors.textSecondary} />
               </SoftPressable>
             </View>
 
@@ -687,13 +836,13 @@ export default function SettingsScreen() {
               <View style={styles.profileCard}>
                 <View style={styles.inlineChoiceBlock}>
                   <View style={styles.profileTitleRow}>
-                    <Feather name="user" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.profileTitle}>身体数据</Text>
+                    <Feather name="user" size={16} color={colors.textSecondary} />
+                    <Text style={styles.profileTitle}>{copy.bodyData}</Text>
                   </View>
 
                   <View style={styles.weightRow}>
                     <View style={styles.weightLabelGroup}>
-                      <Text style={styles.weightLabel}>体重</Text>
+                      <Text style={styles.weightLabel}>{copy.weight}</Text>
                     </View>
                     <View style={styles.weightInputShell}>
                       <TextInput
@@ -701,7 +850,7 @@ export default function SettingsScreen() {
                         onChangeText={(value) => setWeightKg(sanitizeDecimal(value))}
                         keyboardType="decimal-pad"
                         placeholder="60"
-                        placeholderTextColor={Theme.colors.textSecondary}
+                        placeholderTextColor={colors.textSecondary}
                         style={styles.weightInput}
                       />
                       <Text style={styles.weightUnit}>kg</Text>
@@ -712,14 +861,14 @@ export default function SettingsScreen() {
 
                 <View style={styles.inlineChoiceBlock}>
                   <View style={styles.profileTitleRow}>
-                    <Feather name="users" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.profileTitle}>性别参考</Text>
+                    <Feather name="users" size={16} color={colors.textSecondary} />
+                    <Text style={styles.profileTitle}>{copy.sex}</Text>
                   </View>
                   <View style={styles.sexGroup}>
                     {SEX_PROFILES.map((option) => (
                       <Chip
                         key={option.value}
-                        label={option.label}
+                        label={isEnglish ? option.labelEn : option.label}
                         selected={sexProfile === option.value}
                         onPress={() => setSexProfile(option.value)}
                       />
@@ -729,11 +878,11 @@ export default function SettingsScreen() {
 
                 <View style={styles.inlineChoiceBlock}>
                   <View style={styles.profileTitleRow}>
-                    <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.profileTitle}>每日活动量</Text>
+                    <Feather name="activity" size={16} color={colors.textSecondary} />
+                    <Text style={styles.profileTitle}>{copy.activity}</Text>
                   </View>
                   <View style={styles.activityGrid}>
-                    {ACTIVITY_LEVELS.map((option) => (
+                    {localizedActivityLevels.map((option) => (
                       <ActivityCard
                         key={option.value}
                         option={option}
@@ -746,11 +895,11 @@ export default function SettingsScreen() {
 
                 <View style={styles.inlineChoiceBlock}>
                   <View style={styles.profileTitleRow}>
-                    <Feather name="coffee" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.profileTitle}>饮食习惯</Text>
+                    <Feather name="coffee" size={16} color={colors.textSecondary} />
+                    <Text style={styles.profileTitle}>{copy.diet}</Text>
                   </View>
                   <View style={styles.dietGrid}>
-                    {DIET_PROFILES.map((option) => (
+                    {localizedDietProfiles.map((option) => (
                       <SmallOptionCard
                         key={option.value}
                         title={option.title}
@@ -764,20 +913,20 @@ export default function SettingsScreen() {
 
                 <View style={styles.resultCard}>
                   <View style={styles.resultCopy}>
-                    <Text style={styles.resultTitle}>计算结果：</Text>
+                    <Text style={styles.resultTitle}>{copy.result}</Text>
                     <Text style={styles.resultDescription} numberOfLines={1}>
-                      根据你的数据推荐每日饮水量
+                      {copy.resultDescription}
                     </Text>
                     <View style={styles.resultValueRow}>
                       <Text style={styles.resultValue}>
                         {isWeightValid ? estimatedDailyGoal : '--'}
                       </Text>
-                      <Text style={styles.resultUnit}>ml / 天</Text>
+                      <Text style={styles.resultUnit}>{copy.unitPerDay}</Text>
                     </View>
                     <View style={styles.cupEstimateRow}>
-                      <Feather name="droplet" size={16} color={Theme.colors.textSecondary} />
+                      <Feather name="droplet" size={16} color={colors.textSecondary} />
                       <Text style={styles.cupEstimateText}>
-                        {isWeightValid ? cupEstimateText : '请输入体重后查看结果'}
+                        {isWeightValid ? cupEstimateText : copy.missingWeight}
                       </Text>
                     </View>
                   </View>
@@ -807,7 +956,7 @@ export default function SettingsScreen() {
                       !isWeightValid && styles.saveButtonTextDisabled,
                     ]}
                   >
-                    应用这个目标
+                    {copy.apply}这个目标
                   </Text>
                 </SoftPressable>
               </View>
@@ -819,10 +968,11 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 24,
@@ -831,12 +981,12 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: Theme.type.pageTitle,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.text,
+    color: colors.text,
     marginBottom: 24,
     letterSpacing: 0.5,
   },
   card: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
     padding: 20,
     marginBottom: 16,
@@ -850,7 +1000,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: Theme.type.sectionTitle,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.text,
+    color: colors.text,
     marginBottom: 6,
   },
   headerCardTitle: {
@@ -866,7 +1016,7 @@ const styles = StyleSheet.create({
   cardDescription: {
     fontSize: 14,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: 16,
   },
@@ -879,24 +1029,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: Theme.colors.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderRadius: Theme.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.primaryBorder,
+    borderColor: colors.primaryBorder,
     paddingLeft: 11,
     paddingRight: 8,
   },
   estimatePillText: {
-    color: Theme.colors.primary,
+    color: colors.primary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
   },
   estimateButton: {
     alignSelf: 'flex-start',
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
     borderRadius: Theme.radius.button,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     marginTop: 6,
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -905,7 +1055,7 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   estimateButtonText: {
-    color: Theme.colors.primary,
+    color: colors.primary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
   },
@@ -918,7 +1068,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   customTitle: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 14,
     lineHeight: 20,
@@ -931,46 +1081,46 @@ const styles = StyleSheet.create({
   customInputShell: {
     width: 90,
     minHeight: 42,
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.input,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
   },
   customInput: {
     flex: 1,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
     paddingVertical: 8,
   },
   inputUnit: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
   },
   saveButton: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Theme.radius.button,
     minHeight: 42,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
   saveButtonPressed: {
-    backgroundColor: Theme.colors.primaryPressed,
+    backgroundColor: colors.primaryPressed,
   },
   saveButtonDisabled: {
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
   },
   saveButtonText: {
-    color: Theme.colors.surface,
+    color: colors.surface,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
   },
   saveButtonTextDisabled: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   systemRow: {
     gap: 10,
@@ -981,7 +1131,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   systemLabel: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
     lineHeight: 19,
@@ -990,9 +1140,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
+  systemDescriptionText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   systemDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
     marginVertical: 14,
   },
   aboutInfoRow: {
@@ -1002,12 +1158,12 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
   aboutInfoLabel: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 14,
   },
   aboutInfoValue: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
   },
@@ -1018,11 +1174,11 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Theme.colors.backdrop,
+    backgroundColor: colors.backdrop,
   },
   modalCard: {
     maxHeight: '88%',
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 22,
     overflow: 'hidden',
     paddingHorizontal: 18,
@@ -1044,13 +1200,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalTitle: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 18,
     lineHeight: 24,
   },
   modalDescription: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 19,
@@ -1060,26 +1216,26 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Theme.radius.full,
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonPressed: {
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
   modalScrollContent: {
     paddingBottom: 2,
   },
   profileCard: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     padding: 14,
     gap: 16,
   },
   profileTitle: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 16,
     lineHeight: 21,
@@ -1093,10 +1249,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 15,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     gap: 16,
     minHeight: 54,
     paddingHorizontal: 12,
@@ -1109,7 +1265,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weightLabel: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
     lineHeight: 19,
@@ -1117,23 +1273,23 @@ const styles = StyleSheet.create({
   weightInputShell: {
     width: 104,
     minHeight: 40,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
   },
   weightInput: {
     flex: 1,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
     paddingVertical: 6,
   },
   weightUnit: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
   },
@@ -1153,10 +1309,10 @@ const styles = StyleSheet.create({
   activityCard: {
     width: '48.5%',
     minHeight: 58,
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1165,8 +1321,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   activityCardSelected: {
-    backgroundColor: Theme.colors.primarySoft,
-    borderColor: Theme.colors.primaryBorder,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBorder,
   },
   activityCardPressed: {
     opacity: 0.86,
@@ -1177,17 +1333,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityTitle: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 13,
     lineHeight: 17,
     textAlign: 'center',
   },
   activityTitleSelected: {
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
   activitySubtitle: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 11,
     lineHeight: 15,
@@ -1195,7 +1351,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   activitySubtitleSelected: {
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
   dietGrid: {
     flexDirection: 'row',
@@ -1206,30 +1362,30 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     minHeight: 60,
-    backgroundColor: Theme.colors.surfaceMuted,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     justifyContent: 'center',
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
   smallOptionCardSelected: {
-    backgroundColor: Theme.colors.primarySoft,
-    borderColor: Theme.colors.primaryBorder,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBorder,
   },
   smallOptionTitle: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
     lineHeight: 16,
     textAlign: 'center',
   },
   smallOptionTitleSelected: {
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
   smallOptionSubtitle: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 11,
     lineHeight: 15,
@@ -1237,14 +1393,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   smallOptionSubtitleSelected: {
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
   resultCard: {
     minHeight: 118,
-    backgroundColor: Theme.colors.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     padding: 14,
     marginTop: 2,
     marginBottom: 12,
@@ -1256,13 +1412,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   resultTitle: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 16,
     lineHeight: 21,
   },
   resultDescription: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 18,
@@ -1274,13 +1430,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   resultValue: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 38,
     lineHeight: 44,
   },
   resultUnit: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
     lineHeight: 24,
@@ -1294,7 +1450,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   cupEstimateText: {
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 18,
@@ -1323,13 +1479,14 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Theme.radius.full,
     paddingHorizontal: 18,
   },
   modalPrimaryText: {
-    color: Theme.colors.surface,
+    color: colors.surface,
     fontFamily: Theme.fonts.medium,
     fontSize: 15,
   },
-});
+  });
+}

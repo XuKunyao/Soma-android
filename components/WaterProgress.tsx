@@ -13,6 +13,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useAppTheme';
 
 interface WaterProgressProps {
   current: number;    // 当前饮水量 (ml)
@@ -20,6 +21,8 @@ interface WaterProgressProps {
 }
 
 export function WaterProgress({ current, goal }: WaterProgressProps) {
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const size = 214;                    // 圆环尺寸
   const strokeWidth = 9;              // 线条粗细
   const radius = (size - strokeWidth) / 2;
@@ -32,8 +35,8 @@ export function WaterProgress({ current, goal }: WaterProgressProps) {
 
   // 达标后变绿色
   const progressColor = progress >= 1
-    ? Theme.colors.success
-    : Theme.colors.primary;
+    ? colors.success
+    : colors.primary;
 
   // 格式化显示（毫升转升）
   const currentDisplay = (current / 1000).toFixed(1);
@@ -47,7 +50,7 @@ export function WaterProgress({ current, goal }: WaterProgressProps) {
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={Theme.colors.trackBackground}
+          stroke={colors.trackBackground}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -75,7 +78,8 @@ export function WaterProgress({ current, goal }: WaterProgressProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -88,13 +92,14 @@ const styles = StyleSheet.create({
   currentText: {
     fontSize: Theme.type.metric,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.text,
+    color: colors.text,
     letterSpacing: 0,
   },
   dividerText: {
     fontSize: 15,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
-});
+  });
+}

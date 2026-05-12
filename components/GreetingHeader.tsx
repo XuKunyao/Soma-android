@@ -10,36 +10,44 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useAppTheme';
+import { useWater } from '@/contexts/WaterContext';
+import type { LanguagePreference } from '@/utils/storage';
 
 /** 根据小时数返回问候语 */
-function getGreeting(): { text: string; subtitle: string } {
+function getGreeting(language: LanguagePreference): { text: string; subtitle: string } {
   const hour = new Date().getHours();
 
+  const greetings = language === 'en'
+    ? {
+      morning: { text: 'Good morning', subtitle: 'A new day can begin gently' },
+      afternoon: { text: 'Good afternoon', subtitle: 'Pause for a sip between busy moments' },
+      evening: { text: 'Good evening', subtitle: 'You have done enough. Take care of yourself' },
+      night: { text: 'Late night', subtitle: 'Rest soon, and continue tomorrow' },
+    }
+    : {
+      morning: { text: '早上好', subtitle: '新的一天，慢慢开始' },
+      afternoon: { text: '下午好', subtitle: '忙碌之余，别忘了补充水分' },
+      evening: { text: '晚上好', subtitle: '辛苦了，照顾一下自己' },
+      night: { text: '夜深了', subtitle: '早点休息，明天再继续' },
+    };
+
   if (hour >= 5 && hour < 12) {
-    return {
-      text: '早上好',
-      subtitle: '新的一天，慢慢开始',
-    };
+    return greetings.morning;
   } else if (hour >= 12 && hour < 18) {
-    return {
-      text: '下午好',
-      subtitle: '忙碌之余，别忘了补充水分',
-    };
+    return greetings.afternoon;
   } else if (hour >= 18 && hour < 23) {
-    return {
-      text: '晚上好',
-      subtitle: '辛苦了，照顾一下自己',
-    };
+    return greetings.evening;
   } else {
-    return {
-      text: '夜深了',
-      subtitle: '早点休息，明天再继续',
-    };
+    return greetings.night;
   }
 }
 
 export function GreetingHeader() {
-  const { text, subtitle } = getGreeting();
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const { state } = useWater();
+  const { text, subtitle } = getGreeting(state.settings.language);
 
   return (
     <View style={styles.container}>
@@ -49,7 +57,8 @@ export function GreetingHeader() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   container: {
     paddingTop: 8,
     paddingBottom: 4,
@@ -57,14 +66,15 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: Theme.type.pageTitle,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.text,
+    color: colors.text,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 15,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 6,
     lineHeight: 22,
   },
-});
+  });
+}

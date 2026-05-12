@@ -14,17 +14,27 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import type * as ExpoNotifications from 'expo-notifications';
+import type { LanguagePreference } from '@/utils/storage';
 
 type NotificationsModule = typeof ExpoNotifications;
 
 /** 温暖的提醒文案集合 */
-const REMINDER_MESSAGES = [
-  { title: '该喝水啦', body: '照顾好自己，喝杯水吧 🌿' },
-  { title: '休息一下', body: '起来活动活动，顺便喝杯水 💧' },
-  { title: '补充水分', body: '记得喝水哦，保持好状态 🍃' },
-  { title: '喝水时间', body: '给自己一杯温水，放松一下 ☕' },
-  { title: '温馨提醒', body: '今天的水喝够了吗？来一杯吧 🌸' },
-];
+const REMINDER_MESSAGES: Record<LanguagePreference, { title: string; body: string }[]> = {
+  zh: [
+    { title: '该喝水啦', body: '照顾好自己，喝杯水吧 🌿' },
+    { title: '休息一下', body: '起来活动活动，顺便喝杯水 💧' },
+    { title: '补充水分', body: '记得喝水哦，保持好状态 🍃' },
+    { title: '喝水时间', body: '给自己一杯温水，放松一下 ☕' },
+    { title: '温馨提醒', body: '今天的水喝够了吗？来一杯吧 🌸' },
+  ],
+  en: [
+    { title: 'Time for water', body: 'Take a quiet moment and drink a glass 🌿' },
+    { title: 'A gentle pause', body: 'Stretch a little, then sip some water 💧' },
+    { title: 'Hydration reminder', body: 'A small glass now helps the day feel easier 🍃' },
+    { title: 'Water break', body: 'Give yourself a glass of water and breathe ☕' },
+    { title: 'Kind reminder', body: 'Have you had enough water today? 🌸' },
+  ],
+};
 
 function isExpoGo(): boolean {
   return Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
@@ -68,7 +78,7 @@ export async function ensureNotificationChannel(): Promise<void> {
   }
 
   await Notifications.setNotificationChannelAsync('water-reminders', {
-    name: '喝水提醒',
+    name: 'Water reminders',
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#D97757',
@@ -93,7 +103,7 @@ export async function requestPermissions(): Promise<boolean> {
  * 设定定时喝水提醒
  * @param intervalMinutes 提醒间隔（分钟）
  */
-export async function scheduleWaterReminder(intervalMinutes: number): Promise<void> {
+export async function scheduleWaterReminder(intervalMinutes: number, language: LanguagePreference = 'zh'): Promise<void> {
   const Notifications = await getNotifications();
   if (!Notifications) {
     return;
@@ -103,7 +113,8 @@ export async function scheduleWaterReminder(intervalMinutes: number): Promise<vo
   await cancelAllReminders();
 
   // 随机选一条温暖的提醒文案
-  const message = REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
+  const messages = REMINDER_MESSAGES[language];
+  const message = messages[Math.floor(Math.random() * messages.length)];
 
   // 设定重复通知
   await Notifications.scheduleNotificationAsync({

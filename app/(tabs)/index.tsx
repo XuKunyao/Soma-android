@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import { WaterProgress } from '@/components/WaterProgress';
 import { WaterLogItem } from '@/components/WaterLogItem';
@@ -32,8 +33,13 @@ import { GreetingHeader } from '@/components/GreetingHeader';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state, addWater, deleteLog } = useWater();
   const { todayLogs, todayTotal, settings, isLoaded } = state;
+  const copy = settings.language === 'en'
+    ? { completed: 'Today\'s goal is complete', add: 'Drank a glass', logs: 'Today\'s records' }
+    : { completed: '今日目标已完成', add: '喝了一杯', logs: '今日记录' };
   const openLogActionRef = React.useRef<SwipeableMethods | null>(null);
 
   const closeOpenLogAction = React.useCallback(() => {
@@ -74,7 +80,7 @@ export default function HomeScreen() {
       {/* 达标提示 */}
       {todayTotal >= settings.dailyGoal && (
         <Text style={styles.completedText}>
-          今日目标已完成
+          {copy.completed}
         </Text>
       )}
 
@@ -89,14 +95,14 @@ export default function HomeScreen() {
           addWater();
         }}
       >
-        <Feather name="plus" size={19} color={Theme.colors.surface} />
-        <Text style={styles.addButtonText}>喝了一杯（{settings.cupSize}ml）</Text>
+        <Feather name="plus" size={19} color={colors.surface} />
+        <Text style={styles.addButtonText}>{copy.add} ({settings.cupSize}ml)</Text>
       </Pressable>
 
       {/* 今日记录 */}
       {todayLogs.length > 0 && (
         <View style={styles.logSection}>
-          <Text style={styles.logTitle} onPress={closeOpenLogAction}>今日记录</Text>
+          <Text style={styles.logTitle} onPress={closeOpenLogAction}>{copy.logs}</Text>
           <View style={styles.logCard}>
             {todayLogs.map((log) => (
               <WaterLogItem
@@ -121,10 +127,11 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: typeof Theme.colors) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 24,
@@ -139,12 +146,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.success,
+    color: colors.success,
     marginBottom: 16,
   },
   addButton: {
     flexDirection: 'row',
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Theme.radius.button,
     minHeight: 54,
     paddingHorizontal: 18,
@@ -154,10 +161,10 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   addButtonPressed: {
-    backgroundColor: Theme.colors.primaryPressed,
+    backgroundColor: colors.primaryPressed,
   },
   addButtonText: {
-    color: Theme.colors.surface,
+    color: colors.surface,
     fontSize: 17,
     fontFamily: Theme.fonts.medium,
     letterSpacing: 0.3,
@@ -168,11 +175,11 @@ const styles = StyleSheet.create({
   logTitle: {
     fontSize: 16,
     fontFamily: Theme.fonts.medium,
-    color: Theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 12,
   },
   logCard: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
     overflow: 'hidden',
     // 极轻阴影 — 相当于 elevation 1dp
@@ -182,4 +189,5 @@ const styles = StyleSheet.create({
     shadowOpacity: Theme.shadow.card.opacity,
     shadowRadius: Theme.shadow.card.radius,
   },
-});
+  });
+}

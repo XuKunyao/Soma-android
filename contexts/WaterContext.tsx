@@ -202,7 +202,7 @@ export function WaterProvider({ children }: { children: ReactNode }) {
       saveGoalForDate(state.dateKey, state.settings.dailyGoal);
       // 更新提醒调度
       if (state.settings.reminderEnabled) {
-        scheduleWaterReminder(state.settings.reminderInterval);
+        scheduleWaterReminder(state.settings.reminderInterval, state.settings.language);
       } else {
         cancelAllReminders();
       }

@@ -5,16 +5,21 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-Preview-3DDC84?style=flat-square&logo=android&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-MVP-D97757?style=flat-square)
+![Theme](https://img.shields.io/badge/Theme-Light%20%2F%20Dark-A67C63?style=flat-square)
+![Language](https://img.shields.io/badge/Language-ZH%20%2F%20EN-7A9A6D?style=flat-square)
+![Storage](https://img.shields.io/badge/Storage-Local-69A297?style=flat-square)
+![Notifications](https://img.shields.io/badge/Notifications-Local-E18A68?style=flat-square)
+![Reanimated](https://img.shields.io/badge/Motion-Reanimated-CB8E67?style=flat-square)
 
 Soma 是一款温暖、安静、克制的喝水提醒应用。它不把饮水管理做成焦虑的打卡任务，而是用柔和的进度、轻量的记录和本地提醒，帮助用户在日常节奏里照顾自己。
 
-当前版本聚焦 Android 预览体验，已支持今日进度、快速记录、历史统计、个性化目标估算、杯量设置和本地通知提醒。
+当前版本聚焦 Android 预览体验，已支持今日进度、快速记录、历史统计、个性化目标估算、杯量设置、本地通知提醒、中英双语和跟随系统的深浅色外观。
 
 ## Product Direction
 
 Soma 的设计目标是成为一个低刺激的日常工具：
 
-- 温暖浅色主题，避免纯白、冷灰、霓虹色和强科技感。
+- 温暖浅色与暖灰深色主题，避免纯白、纯黑、冷灰、霓虹色和强科技感。
 - 首页只强调一件事：今天喝了多少水。
 - 数据展示保持轻量，帮助回顾节律，而不是制造压力。
 - 设置体验尽量清楚、安静，不把健康参数做成复杂表单。
@@ -30,6 +35,7 @@ Soma 的设计目标是成为一个低刺激的日常工具：
 - **自定义设置**：支持每日目标、提醒间隔、预设杯量和自定义杯量。
 - **本地提醒**：使用 Expo Notifications 调度喝水提醒。
 - **本地存储**：饮水记录和设置保存在设备本地。
+- **系统设置**：支持中英双语、跟随系统深浅色、触感反馈和应用信息。
 
 ## Design System
 
@@ -133,7 +139,8 @@ utils/
 - [x] 个性化喝水目标估算
 - [x] 本地通知提醒
 - [x] 日、周、月、年历史统计
-- [x] 温暖浅色视觉系统
+- [x] 温暖浅色和暖灰深色视觉系统
+- [x] 中英双语系统设置
 - [x] 应用图标和启动页资源接入
 - [ ] 自定义提醒时间段
 - [ ] APK / development build 验证
