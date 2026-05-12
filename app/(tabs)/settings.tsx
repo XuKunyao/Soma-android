@@ -602,10 +602,7 @@ export default function SettingsScreen() {
             >
               <View style={styles.profileCard}>
                 <View style={styles.modalSectionBlock}>
-                  <View style={styles.modalSectionHeader}>
-                    <Feather name="user" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.profileTitle}>身体数据</Text>
-                  </View>
+                  <Text style={styles.profileTitle}>身体数据</Text>
 
                   <View style={styles.weightRow}>
                     <View style={styles.weightLabelGroup}>
@@ -626,7 +623,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View style={styles.inlineChoiceBlock}>
-                    <Text style={styles.choiceLabel}>性别参考</Text>
+                    <Text style={styles.profileTitle}>性别参考</Text>
                     <View style={styles.sexGroup}>
                       {SEX_PROFILES.map((option) => (
                         <Chip
@@ -643,13 +640,8 @@ export default function SettingsScreen() {
                 <View style={styles.profileDivider} />
 
                 <View style={styles.modalSectionBlock}>
-                  <View style={styles.modalSectionHeader}>
-                    <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
-                    <Text style={styles.profileTitle}>生活习惯</Text>
-                  </View>
-
                   <View style={styles.inlineChoiceBlock}>
-                    <Text style={styles.choiceLabel}>每日活动量</Text>
+                    <Text style={styles.profileTitle}>每日活动量</Text>
                     <View style={styles.activityGrid}>
                       {ACTIVITY_LEVELS.map((option) => (
                         <ActivityCard
@@ -663,7 +655,7 @@ export default function SettingsScreen() {
                   </View>
 
                   <View style={styles.inlineChoiceBlock}>
-                    <Text style={styles.choiceLabel}>饮食习惯</Text>
+                    <Text style={styles.profileTitle}>饮食习惯</Text>
                     <View style={styles.dietGrid}>
                       {DIET_PROFILES.map((option) => (
                         <SmallOptionCard
@@ -719,15 +711,6 @@ export default function SettingsScreen() {
                   >
                     应用这个目标
                   </Text>
-                </SoftPressable>
-                <SoftPressable
-                  onPress={() => setIsGoalModalVisible(false)}
-                  style={({ pressed }) => [
-                    styles.modalSecondaryButton,
-                    pressed && styles.modalSecondaryButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.modalSecondaryText}>取消</Text>
                 </SoftPressable>
               </View>
             </ScrollView>
@@ -1035,19 +1018,8 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: Theme.colors.border,
   },
-  modalSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   inlineChoiceBlock: {
     gap: 8,
-  },
-  choiceLabel: {
-    color: Theme.colors.text,
-    fontFamily: Theme.fonts.medium,
-    fontSize: 14,
-    lineHeight: 19,
   },
   sexGroup: {
     flexDirection: 'row',
@@ -1230,21 +1202,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.primaryBorder,
     backgroundColor: Theme.colors.primarySoft,
-  },
-  modalSecondaryButton: {
-    minHeight: 42,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-    borderRadius: Theme.radius.button,
-  },
-  modalSecondaryButtonPressed: {
-    backgroundColor: Theme.colors.surfaceMuted,
-  },
-  modalSecondaryText: {
-    color: Theme.colors.textSecondary,
-    fontFamily: Theme.fonts.medium,
-    fontSize: 14,
   },
   modalPrimaryButton: {
     minHeight: 48,
