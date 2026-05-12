@@ -22,6 +22,7 @@ import {
   TextInput,
   Modal,
   KeyboardAvoidingView,
+  Image,
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -56,6 +57,7 @@ const INTERVALS = [
 /** 可选的每日目标 */
 const DAILY_GOALS = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
 const BASE_WEIGHT_SLOPE = 14;
+const HYDRATION_GOAL_IMAGE = require('../../assets/images/hydration-goal-illustration.png');
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high';
@@ -698,7 +700,11 @@ export default function SettingsScreen() {
                   </View>
                   <View style={styles.resultIllustration}>
                     <View style={styles.resultVisualSlot}>
-                      <View style={styles.resultVisualMark} />
+                      <Image
+                        source={HYDRATION_GOAL_IMAGE}
+                        style={styles.resultImage}
+                        resizeMode="contain"
+                      />
                     </View>
                   </View>
                 </View>
@@ -1196,19 +1202,12 @@ const styles = StyleSheet.create({
     width: 78,
     height: 78,
     borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.primaryBorder,
-    backgroundColor: Theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resultVisualMark: {
-    width: 24,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.primaryBorder,
-    backgroundColor: Theme.colors.primarySoft,
+  resultImage: {
+    width: 78,
+    height: 78,
   },
   modalPrimaryButton: {
     minHeight: 48,
