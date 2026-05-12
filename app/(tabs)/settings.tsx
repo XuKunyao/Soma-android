@@ -601,7 +601,7 @@ export default function SettingsScreen() {
               contentContainerStyle={styles.modalScrollContent}
             >
               <View style={styles.profileCard}>
-                <View style={styles.modalSectionBlock}>
+                <View style={styles.inlineChoiceBlock}>
                   <View style={styles.profileTitleRow}>
                     <Feather name="user" size={16} color={Theme.colors.textSecondary} />
                     <Text style={styles.profileTitle}>身体数据</Text>
@@ -625,58 +625,57 @@ export default function SettingsScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.inlineChoiceBlock}>
-                    <View style={styles.profileTitleRow}>
-                      <Feather name="users" size={16} color={Theme.colors.textSecondary} />
-                      <Text style={styles.profileTitle}>性别参考</Text>
-                    </View>
-                    <View style={styles.sexGroup}>
-                      {SEX_PROFILES.map((option) => (
-                        <Chip
-                          key={option.value}
-                          label={option.label}
-                          selected={sexProfile === option.value}
-                          onPress={() => setSexProfile(option.value)}
-                        />
-                      ))}
-                    </View>
+                </View>
+
+                <View style={styles.inlineChoiceBlock}>
+                  <View style={styles.profileTitleRow}>
+                    <Feather name="users" size={16} color={Theme.colors.textSecondary} />
+                    <Text style={styles.profileTitle}>性别参考</Text>
+                  </View>
+                  <View style={styles.sexGroup}>
+                    {SEX_PROFILES.map((option) => (
+                      <Chip
+                        key={option.value}
+                        label={option.label}
+                        selected={sexProfile === option.value}
+                        onPress={() => setSexProfile(option.value)}
+                      />
+                    ))}
                   </View>
                 </View>
 
-                <View style={styles.modalSectionBlock}>
-                  <View style={styles.inlineChoiceBlock}>
-                    <View style={styles.profileTitleRow}>
-                      <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
-                      <Text style={styles.profileTitle}>每日活动量</Text>
-                    </View>
-                    <View style={styles.activityGrid}>
-                      {ACTIVITY_LEVELS.map((option) => (
-                        <ActivityCard
-                          key={option.value}
-                          option={option}
-                          selected={activityLevel === option.value}
-                          onPress={() => setActivityLevel(option.value)}
-                        />
-                      ))}
-                    </View>
+                <View style={styles.inlineChoiceBlock}>
+                  <View style={styles.profileTitleRow}>
+                    <Feather name="activity" size={16} color={Theme.colors.textSecondary} />
+                    <Text style={styles.profileTitle}>每日活动量</Text>
                   </View>
+                  <View style={styles.activityGrid}>
+                    {ACTIVITY_LEVELS.map((option) => (
+                      <ActivityCard
+                        key={option.value}
+                        option={option}
+                        selected={activityLevel === option.value}
+                        onPress={() => setActivityLevel(option.value)}
+                      />
+                    ))}
+                  </View>
+                </View>
 
-                  <View style={styles.inlineChoiceBlock}>
-                    <View style={styles.profileTitleRow}>
-                      <Feather name="coffee" size={16} color={Theme.colors.textSecondary} />
-                      <Text style={styles.profileTitle}>饮食习惯</Text>
-                    </View>
-                    <View style={styles.dietGrid}>
-                      {DIET_PROFILES.map((option) => (
-                        <SmallOptionCard
-                          key={option.value}
-                          title={option.title}
-                          subtitle={option.subtitle}
-                          selected={dietProfile === option.value}
-                          onPress={() => setDietProfile(option.value)}
-                        />
-                      ))}
-                    </View>
+                <View style={styles.inlineChoiceBlock}>
+                  <View style={styles.profileTitleRow}>
+                    <Feather name="coffee" size={16} color={Theme.colors.textSecondary} />
+                    <Text style={styles.profileTitle}>饮食习惯</Text>
+                  </View>
+                  <View style={styles.dietGrid}>
+                    {DIET_PROFILES.map((option) => (
+                      <SmallOptionCard
+                        key={option.value}
+                        title={option.title}
+                        subtitle={option.subtitle}
+                        selected={dietProfile === option.value}
+                        onPress={() => setDietProfile(option.value)}
+                      />
+                    ))}
                   </View>
                 </View>
 
@@ -966,9 +965,6 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     padding: 14,
     gap: 16,
-  },
-  modalSectionBlock: {
-    gap: 12,
   },
   profileTitle: {
     color: Theme.colors.text,
