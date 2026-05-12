@@ -26,6 +26,7 @@ import {
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -53,6 +54,24 @@ const INTERVALS = [
   { label: '2 小时', value: 120 },
   { label: '3 小时', value: 180 },
 ];
+
+const LANGUAGE_OPTIONS = [
+  { label: '中文', value: 'zh' as const },
+  { label: 'English', value: 'en' as const },
+];
+
+const APPEARANCE_OPTIONS = {
+  zh: [
+    { label: '跟随系统', value: 'system' as const },
+    { label: '浅色', value: 'light' as const },
+    { label: '深色', value: 'dark' as const },
+  ],
+  en: [
+    { label: 'System', value: 'system' as const },
+    { label: 'Light', value: 'light' as const },
+    { label: 'Dark', value: 'dark' as const },
+  ],
+};
 
 /** 可选的每日目标 */
 const DAILY_GOALS = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
@@ -337,6 +356,30 @@ export default function SettingsScreen() {
   const [activityLevel, setActivityLevel] = React.useState<ActivityLevel>('sedentary');
   const [sexProfile, setSexProfile] = React.useState<SexProfile>('unspecified');
   const [dietProfile, setDietProfile] = React.useState<DietProfile>('balanced');
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const systemCopy = settings.language === 'en'
+    ? {
+      systemTitle: 'System',
+      systemDescription: 'Language, appearance, and app information.',
+      language: 'Language',
+      appearance: 'Appearance',
+      aboutTitle: 'About Soma',
+      aboutDescription: 'A quiet hydration reminder shaped for daily care.',
+      author: 'Author',
+      version: 'Version',
+      currentName: 'XuKunyao',
+    }
+    : {
+      systemTitle: '系统设置',
+      systemDescription: '设置语言、外观和应用信息。',
+      language: '语言',
+      appearance: '外观',
+      aboutTitle: '关于 Soma',
+      aboutDescription: '一款安静克制的喝水提醒工具。',
+      author: '作者',
+      version: '版本',
+      currentName: 'XuKunyao',
+    };
 
   const parsedCustomCupSize = Number.parseInt(customCupSize, 10);
   const isCustomCupSizeValid =
@@ -529,11 +572,60 @@ export default function SettingsScreen() {
           })}
         </View>
       </View>
+      {/* 系统设置 */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{systemCopy.systemTitle}</Text>
+        <Text style={styles.cardDescription}>{systemCopy.systemDescription}</Text>
+
+        <View style={styles.systemRow}>
+          <View style={styles.systemLabelRow}>
+            <Feather name="globe" size={16} color={Theme.colors.textSecondary} />
+            <Text style={styles.systemLabel}>{systemCopy.language}</Text>
+          </View>
+          <View style={styles.systemChipGroup}>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                selected={settings.language === option.value}
+                onPress={() => updateSettings({ language: option.value })}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.systemDivider} />
+
+        <View style={styles.systemRow}>
+          <View style={styles.systemLabelRow}>
+            <Feather name="moon" size={16} color={Theme.colors.textSecondary} />
+            <Text style={styles.systemLabel}>{systemCopy.appearance}</Text>
+          </View>
+          <View style={styles.systemChipGroup}>
+            {APPEARANCE_OPTIONS[settings.language].map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                selected={settings.appearance === option.value}
+                onPress={() => updateSettings({ appearance: option.value })}
+              />
+            ))}
+          </View>
+        </View>
+      </View>
 
       {/* 关于 */}
-      <View style={styles.aboutSection}>
-        <Text style={styles.aboutText}>Soma · 喝水提醒</Text>
-        <Text style={styles.aboutVersion}>v1.0.0</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{systemCopy.aboutTitle}</Text>
+        <Text style={styles.cardDescription}>{systemCopy.aboutDescription}</Text>
+        <View style={styles.aboutInfoRow}>
+          <Text style={styles.aboutInfoLabel}>{systemCopy.author}</Text>
+          <Text style={styles.aboutInfoValue}>{systemCopy.currentName}</Text>
+        </View>
+        <View style={styles.aboutInfoRow}>
+          <Text style={styles.aboutInfoLabel}>{systemCopy.version}</Text>
+          <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
+        </View>
       </View>
 
       <View style={{ height: 32 }} />
@@ -880,21 +972,44 @@ const styles = StyleSheet.create({
   saveButtonTextDisabled: {
     color: Theme.colors.textSecondary,
   },
-  aboutSection: {
+  systemRow: {
+    gap: 10,
+  },
+  systemLabelRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
-    paddingVertical: 16,
+    gap: 8,
   },
-  aboutText: {
+  systemLabel: {
+    color: Theme.colors.text,
+    fontFamily: Theme.fonts.medium,
     fontSize: 14,
-    fontFamily: Theme.fonts.regular,
-    color: Theme.colors.textSecondary,
+    lineHeight: 19,
   },
-  aboutVersion: {
-    fontSize: 12,
+  systemChipGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  systemDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Theme.colors.border,
+    marginVertical: 14,
+  },
+  aboutInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 32,
+  },
+  aboutInfoLabel: {
+    color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    color: Theme.colors.border,
-    marginTop: 4,
+    fontSize: 14,
+  },
+  aboutInfoValue: {
+    color: Theme.colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
   },
   modalRoot: {
     flex: 1,

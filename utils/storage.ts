@@ -29,12 +29,20 @@ export interface WaterDayRecord {
   goal: number;
 }
 
+/** 语言偏好 */
+export type LanguagePreference = 'zh' | 'en';
+
+/** 外观偏好 */
+export type AppearancePreference = 'system' | 'light' | 'dark';
+
 /** 用户设置 */
 export interface WaterSettings {
   dailyGoal: number;          // 每日目标 (ml)，默认 2000
   cupSize: number;            // 单次饮水量 (ml)，默认 250
   reminderInterval: number;   // 提醒间隔 (分钟)，默认 60
   reminderEnabled: boolean;   // 是否开启提醒
+  language: LanguagePreference;       // 界面语言
+  appearance: AppearancePreference;   // 外观模式
 }
 
 /** 默认设置值 */
@@ -43,6 +51,8 @@ export const DEFAULT_SETTINGS: WaterSettings = {
   cupSize: 250,
   reminderInterval: 60,
   reminderEnabled: true,
+  language: 'zh',
+  appearance: 'system',
 };
 
 const WATER_LOG_PREFIX = 'water_logs_';

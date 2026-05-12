@@ -6,20 +6,20 @@
  * 2. 在字体加载完成前保持启动屏
  * 3. 包裹 WaterProvider，让全局状态在所有页面可用
  * 4. 配置通知行为
- * 5. 设置状态栏样式
- *
- * 注意：我们移除了深色模式支持，只保留温暖的浅色主题
+ * 5. 根据外观偏好设置状态栏和系统背景
  */
 
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { useFonts, DMSans_400Regular, DMSans_500Medium } from '@expo-google-fonts/dm-sans';
 import { useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { WaterProvider } from '@/contexts/WaterContext';
+import { WaterProvider, useWater } from '@/contexts/WaterContext';
 import {
   configureNotifications,
   ensureNotificationChannel,
@@ -68,16 +68,35 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <WaterProvider>
-        <Stack
-          screenOptions={{
-            contentStyle: { backgroundColor: Theme.colors.background },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-        {/* dark-content: 浅色背景配深色状态栏图标 */}
-        <StatusBar style="dark" />
+        <AppShell />
       </WaterProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function AppShell() {
+  const systemScheme = useColorScheme();
+  const { state } = useWater();
+  const resolvedScheme = state.settings.appearance === 'system'
+    ? systemScheme
+    : state.settings.appearance;
+  const isDark = resolvedScheme === 'dark';
+  const backgroundColor = isDark ? '#201A16' : Theme.colors.background;
+
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(backgroundColor);
+  }, [backgroundColor]);
+
+  return (
+    <>
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+    </>
   );
 }
