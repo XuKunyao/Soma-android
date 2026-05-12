@@ -404,6 +404,7 @@ export default function SettingsScreen() {
   const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
+  const [isQuietModalVisible, setIsQuietModalVisible] = React.useState(false);
   const [isAboutModalVisible, setIsAboutModalVisible] = React.useState(false);
   const [exportStatus, setExportStatus] = React.useState('');
   const [weightKg, setWeightKg] = React.useState('60');
@@ -718,6 +719,7 @@ export default function SettingsScreen() {
       reminderQuietStart: quietStartInput,
       reminderQuietEnd: quietEndInput,
     });
+    setIsQuietModalVisible(false);
   };
   return (
     <ScrollView
@@ -842,69 +844,28 @@ export default function SettingsScreen() {
             );
           })}
         </View>
-        <View style={styles.quietSection}>
-          <View style={styles.quietHeader}>
-            <View style={styles.quietTitleRow}>
-              <Feather name="moon" size={15} color={colors.textSecondary} />
-              <Text style={styles.quietTitle}>{copy.quietTitle}</Text>
+        <SoftPressable
+          onPress={() => {
+            setQuietStartInput(settings.reminderQuietStart);
+            setQuietEndInput(settings.reminderQuietEnd);
+            setIsQuietModalVisible(true);
+          }}
+          style={({ pressed }) => [
+            styles.quietEntry,
+            pressed && styles.estimateButtonPressed,
+          ]}
+        >
+          <View style={styles.quietEntryLeft}>
+            <View style={styles.quietEntryIcon}>
+              <Feather name="moon" size={15} color={colors.primary} />
             </View>
-            <Text style={styles.quietSummary}>{quietSummary}</Text>
+            <View style={styles.quietEntryCopy}>
+              <Text style={styles.quietEntryTitle}>{copy.quietTitle}</Text>
+              <Text style={styles.quietEntrySummary}>{quietSummary}</Text>
+            </View>
           </View>
-          <Text style={styles.quietDescription}>{copy.quietDescription}</Text>
-          <View style={styles.quietTimeRow}>
-            <View style={styles.quietTimeField}>
-              <Text style={styles.quietTimeLabel}>{copy.quietStart}</Text>
-              <TextInput
-                value={quietStartInput}
-                onChangeText={(value) => setQuietStartInput(formatTimeInput(value))}
-                keyboardType="number-pad"
-                maxLength={5}
-                placeholder="22:00"
-                placeholderTextColor={colors.textSecondary}
-                style={[
-                  styles.quietTimeInput,
-                  !isQuietStartValid && styles.quietTimeInputInvalid,
-                ]}
-              />
-            </View>
-            <View style={styles.quietTimeField}>
-              <Text style={styles.quietTimeLabel}>{copy.quietEnd}</Text>
-              <TextInput
-                value={quietEndInput}
-                onChangeText={(value) => setQuietEndInput(formatTimeInput(value))}
-                keyboardType="number-pad"
-                maxLength={5}
-                placeholder="08:00"
-                placeholderTextColor={colors.textSecondary}
-                style={[
-                  styles.quietTimeInput,
-                  !isQuietEndValid && styles.quietTimeInputInvalid,
-                ]}
-              />
-            </View>
-            <SoftPressable
-              onPress={saveQuietWindow}
-              disabled={!isQuietWindowValid}
-              style={({ pressed }) => [
-                styles.quietSaveButton,
-                pressed && isQuietWindowValid && styles.saveButtonPressed,
-                !isQuietWindowValid && styles.saveButtonDisabled,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.quietSaveText,
-                  !isQuietWindowValid && styles.saveButtonTextDisabled,
-                ]}
-              >
-                {copy.quietSave}
-              </Text>
-            </SoftPressable>
-          </View>
-          {!isQuietWindowValid ? (
-            <Text style={styles.quietInvalidText}>{copy.quietInvalid}</Text>
-          ) : null}
-        </View>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+        </SoftPressable>
       </View>
       {/* 系统设置 */}
       <SoftPressable
@@ -1113,6 +1074,119 @@ export default function SettingsScreen() {
                 </SoftPressable>
               </View>
             </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={isQuietModalVisible}
+        transparent
+        animationType="none"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setIsQuietModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalRoot}
+        >
+          <Animated.View
+            entering={FadeIn.duration(280)}
+            exiting={FadeOut.duration(200)}
+            style={styles.modalBackdrop}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setIsQuietModalVisible(false)}
+            />
+          </Animated.View>
+          <Animated.View
+            entering={FadeInDown.duration(460).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOutDown.duration(220).easing(Easing.in(Easing.cubic))}
+            style={[
+              styles.modalCard,
+              styles.systemModalCard,
+              { marginTop: Math.max(insets.top + 20, 36) },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>{copy.quietTitle}</Text>
+                <Text style={styles.modalDescription}>{copy.quietDescription}</Text>
+              </View>
+              <SoftPressable
+                onPress={() => setIsQuietModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={21} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+            <View style={[styles.quietSection, styles.quietModalPanel]}>
+              <View style={styles.quietHeader}>
+                <View style={styles.quietTitleRow}>
+                  <Feather name="moon" size={15} color={colors.textSecondary} />
+                  <Text style={styles.quietTitle}>{copy.quietTitle}</Text>
+                </View>
+                <Text style={styles.quietSummary}>{quietSummary}</Text>
+              </View>
+              <View style={styles.quietTimeRow}>
+                <View style={styles.quietTimeField}>
+                  <Text style={styles.quietTimeLabel}>{copy.quietStart}</Text>
+                  <TextInput
+                    value={quietStartInput}
+                    onChangeText={(value) => setQuietStartInput(formatTimeInput(value))}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    placeholder="22:00"
+                    placeholderTextColor={colors.textSecondary}
+                    style={[
+                      styles.quietTimeInput,
+                      !isQuietStartValid && styles.quietTimeInputInvalid,
+                    ]}
+                  />
+                </View>
+                <View style={styles.quietTimeField}>
+                  <Text style={styles.quietTimeLabel}>{copy.quietEnd}</Text>
+                  <TextInput
+                    value={quietEndInput}
+                    onChangeText={(value) => setQuietEndInput(formatTimeInput(value))}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    placeholder="08:00"
+                    placeholderTextColor={colors.textSecondary}
+                    style={[
+                      styles.quietTimeInput,
+                      !isQuietEndValid && styles.quietTimeInputInvalid,
+                    ]}
+                  />
+                </View>
+              </View>
+              {!isQuietWindowValid ? (
+                <Text style={styles.quietInvalidText}>{copy.quietInvalid}</Text>
+              ) : null}
+              <SoftPressable
+                onPress={saveQuietWindow}
+                disabled={!isQuietWindowValid}
+                style={({ pressed }) => [
+                  styles.modalPrimaryButton,
+                  pressed && isQuietWindowValid && styles.saveButtonPressed,
+                  !isQuietWindowValid && styles.saveButtonDisabled,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalPrimaryText,
+                    !isQuietWindowValid && styles.saveButtonTextDisabled,
+                  ]}
+                >
+                  {copy.quietSave}
+                </Text>
+              </SoftPressable>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1393,6 +1467,52 @@ function createStyles(colors: typeof Theme.colors) {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
+  quietEntry: {
+    minHeight: 58,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 15,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  quietEntryLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  quietEntryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quietEntryCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  quietEntryTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  quietEntrySummary: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   quietSection: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 16,
@@ -1401,6 +1521,9 @@ function createStyles(colors: typeof Theme.colors) {
     marginTop: 8,
     padding: 12,
     gap: 10,
+  },
+  quietModalPanel: {
+    marginTop: 0,
   },
   quietHeader: {
     gap: 4,
