@@ -389,6 +389,7 @@ export default function SettingsScreen() {
   const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
+  const [isAboutModalVisible, setIsAboutModalVisible] = React.useState(false);
   const [exportStatus, setExportStatus] = React.useState('');
   const [weightKg, setWeightKg] = React.useState('60');
   const [activityLevel, setActivityLevel] = React.useState<ActivityLevel>('sedentary');
@@ -397,6 +398,17 @@ export default function SettingsScreen() {
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const language = settings.language;
   const isEnglish = language === 'en';
+  const aboutAuthorBody = [
+    '你好，我是包子小方同学。',
+    '这个应用由我独立设计和开发。',
+    '',
+    '我希望它不是一个催促你的健康工具，',
+    '而是一张安静的小便签，',
+    '轻轻提醒你在日常里照顾自己。',
+    '',
+    '谢谢你把它留在手机里。',
+    '愿你今天也记得喝一口水。',
+  ].join('\n');
   const copy = isEnglish
     ? {
       pageTitle: 'Settings',
@@ -411,7 +423,7 @@ export default function SettingsScreen() {
       reminderDescription: 'Receive quiet hydration reminders.',
       systemTitle: 'System settings',
       systemDescription: 'Language, appearance, backups, and app information.',
-      systemEntryDescription: 'Language, appearance, backup, about',
+      systemEntryDescription: 'Language, appearance, backup, etc.',
       language: 'Language',
       appearance: 'Appearance',
       dataTitle: 'Data storage',
@@ -428,10 +440,12 @@ export default function SettingsScreen() {
       exportFailed: 'Export failed. Please try again.',
       aboutTitle: 'About Soma',
       aboutDescription: '慢慢喝水，慢慢照顾自己。',
+      aboutAuthorTitle: 'About the author',
+      aboutAuthorBody,
       author: 'Author',
       contact: 'Contact',
       version: 'Version',
-      currentName: 'XuKunyao',
+      currentName: '包子小方同学',
       modalTitle: 'Custom hydration goal',
       modalDescription: 'Estimate a water goal for today’s records and reminders.',
       close: 'Close',
@@ -461,7 +475,7 @@ export default function SettingsScreen() {
       reminderDescription: '定期收到喝水提醒通知',
       systemTitle: '系统设置',
       systemDescription: '设置语言、外观、数据备份和应用信息。',
-      systemEntryDescription: '语言、外观、备份、关于',
+      systemEntryDescription: '语言、外观、备份等',
       language: '语言',
       appearance: '外观',
       dataTitle: '数据存储',
@@ -478,10 +492,12 @@ export default function SettingsScreen() {
       exportFailed: '导出失败，请重试。',
       aboutTitle: '关于 Soma',
       aboutDescription: '慢慢喝水，慢慢照顾自己。',
+      aboutAuthorTitle: '关于作者',
+      aboutAuthorBody,
       author: '作者',
       contact: '联系方式',
       version: '版本',
-      currentName: 'XuKunyao',
+      currentName: '包子小方同学',
       modalTitle: '自定义喝水目标',
       modalDescription: '估算适合今天记录和提醒的喝水量',
       close: '关闭',
@@ -553,13 +569,6 @@ export default function SettingsScreen() {
   const cupEstimateText = cupCountMin === cupCountMax
     ? copy.cupSingle.replace('{count}', String(cupCountMin))
     : copy.cupRange.replace('{min}', String(cupCountMin)).replace('{max}', String(cupCountMax));
-  const selectedAppearanceLabel = APPEARANCE_OPTIONS[language].find(
-    (option) => option.value === settings.appearance,
-  )?.label ?? APPEARANCE_OPTIONS[language][0].label;
-  const selectedLanguageLabel = LANGUAGE_OPTIONS.find(
-    (option) => option.value === settings.language,
-  )?.label ?? LANGUAGE_OPTIONS[0].label;
-  const systemSummary = `${selectedLanguageLabel} · ${selectedAppearanceLabel}`;
   const exportDirectoryLabel = settings.exportDirectoryUri
     ? copy.exportPathSelected
     : copy.exportPathEmpty;
@@ -799,8 +808,8 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.systemEntryCopy}>
             <Text style={styles.cardTitle}>{copy.systemTitle}</Text>
-            <Text style={styles.systemEntryDescription}>
-              {copy.systemEntryDescription} · {systemSummary}
+            <Text style={styles.systemEntryDescription} numberOfLines={1}>
+              {copy.systemEntryDescription}
             </Text>
           </View>
         </View>
@@ -1125,27 +1134,89 @@ export default function SettingsScreen() {
 
                 <View style={styles.systemDivider} />
 
-                <View style={styles.systemSection}>
-                  <View style={styles.systemLabelRow}>
-                    <Feather name="info" size={16} color={colors.textSecondary} />
-                    <Text style={styles.systemLabel}>{copy.aboutTitle}</Text>
+                <SoftPressable
+                  onPress={() => setIsAboutModalVisible(true)}
+                  style={({ pressed }) => [
+                    styles.aboutEntry,
+                    pressed && styles.estimateButtonPressed,
+                  ]}
+                >
+                  <View style={styles.aboutEntryCopy}>
+                    <View style={styles.systemLabelRow}>
+                      <Feather name="info" size={16} color={colors.textSecondary} />
+                      <Text style={styles.systemLabel}>{copy.aboutTitle}</Text>
+                    </View>
+                    <Text style={styles.systemDescriptionText}>{copy.aboutDescription}</Text>
                   </View>
-                  <Text style={styles.systemDescriptionText}>{copy.aboutDescription}</Text>
-                  <View style={styles.aboutInfoRow}>
-                    <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
-                    <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
-                  </View>
-                  <View style={styles.aboutInfoRow}>
-                    <Text style={styles.aboutInfoLabel}>{copy.contact}</Text>
-                    <Text style={styles.aboutInfoValue}>xukunyao215@163.com</Text>
-                  </View>
-                  <View style={styles.aboutInfoRow}>
-                    <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
-                    <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
-                  </View>
-                </View>
+                  <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+                </SoftPressable>
               </View>
             </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={isAboutModalVisible}
+        transparent
+        animationType="none"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setIsAboutModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalRoot}
+        >
+          <Animated.View
+            style={styles.modalBackdrop}
+            entering={FadeIn.duration(180)}
+            exiting={FadeOut.duration(160)}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setIsAboutModalVisible(false)}
+            />
+          </Animated.View>
+          <Animated.View
+            entering={FadeInDown.duration(420).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOutDown.duration(200).easing(Easing.in(Easing.cubic))}
+            style={[styles.modalCard, styles.systemModalCard]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>{copy.aboutTitle}</Text>
+                <Text style={styles.modalDescription}>{copy.aboutDescription}</Text>
+              </View>
+              <SoftPressable
+                onPress={() => setIsAboutModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={24} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+            <View style={styles.aboutAuthorCard}>
+              <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
+              <Text style={styles.aboutAuthorBody}>{copy.aboutAuthorBody}</Text>
+              <View style={styles.aboutInfoGroup}>
+                <View style={styles.aboutInfoRow}>
+                  <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
+                  <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
+                </View>
+                <View style={styles.aboutInfoRow}>
+                  <Text style={styles.aboutInfoLabel}>{copy.contact}</Text>
+                  <Text style={styles.aboutInfoValue}>xukunyao215@163.com</Text>
+                </View>
+                <View style={styles.aboutInfoRow}>
+                  <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
+                  <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
+                </View>
+              </View>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1337,6 +1408,7 @@ function createStyles(colors: typeof Theme.colors) {
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 19,
+    flexShrink: 1,
   },
   systemRow: {
     gap: 10,
@@ -1377,6 +1449,19 @@ function createStyles(colors: typeof Theme.colors) {
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 19,
+  },
+  aboutEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderRadius: 14,
+    paddingVertical: 2,
+  },
+  aboutEntryCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
   },
   systemDivider: {
     height: StyleSheet.hairlineWidth,
@@ -1443,6 +1528,32 @@ function createStyles(colors: typeof Theme.colors) {
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 17,
+  },
+  aboutAuthorCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 14,
+  },
+  aboutAuthorTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 17,
+    lineHeight: 23,
+  },
+  aboutAuthorBody: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 14,
+    lineHeight: 23,
+  },
+  aboutInfoGroup: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+    gap: 2,
   },
   aboutInfoRow: {
     flexDirection: 'row',
