@@ -684,7 +684,9 @@ export default function SettingsScreen() {
                 <View style={styles.resultCard}>
                   <View style={styles.resultCopy}>
                     <Text style={styles.resultTitle}>计算结果</Text>
-                    <Text style={styles.resultDescription}>根据你的数据推荐每日饮水量</Text>
+                    <Text style={styles.resultDescription} numberOfLines={1}>
+                      根据你的数据推荐每日饮水量
+                    </Text>
                     <View style={styles.resultValueRow}>
                       <Text style={styles.resultValue}>
                         {isWeightValid ? estimatedDailyGoal : '--'}
@@ -1139,12 +1141,11 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 2,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    position: 'relative',
     overflow: 'hidden',
   },
   resultCopy: {
-    flex: 1,
+    paddingRight: 82,
     zIndex: 1,
   },
   resultTitle: {
@@ -1192,22 +1193,24 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   resultIllustration: {
-    width: 112,
-    height: 104,
+    position: 'absolute',
+    top: 18,
+    right: 8,
+    width: 104,
+    height: 94,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
   resultVisualSlot: {
-    width: 108,
-    height: 100,
+    width: 104,
+    height: 94,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultImage: {
-    width: 106,
-    height: 98,
+    width: 112,
+    height: 108,
   },
   modalPrimaryButton: {
     minHeight: 48,
