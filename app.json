@@ -12,6 +12,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.xukunyao.soma",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#D97757",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
