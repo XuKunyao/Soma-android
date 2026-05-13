@@ -50,14 +50,20 @@ import { buildWaterDataExport } from '@/utils/storage';
 const CUP_SIZES = [100, 150, 200, 250, 300, 400, 500];
 
 /** 可选的提醒间隔（分钟） */
-const INTERVALS = [
-  { label: '关闭', labelEn: 'Off', value: 0 },
-  { label: '30 分钟', labelEn: '30 min', value: 30 },
-  { label: '1 小时', labelEn: '1 hour', value: 60 },
-  { label: '1.5 小时', labelEn: '1.5 hours', value: 90 },
-  { label: '2 小时', labelEn: '2 hours', value: 120 },
-  { label: '3 小时', labelEn: '3 hours', value: 180 },
+const BASE_INTERVALS = [
+  { label: '关闭', labelEn: 'Off', value: 0, kind: 'off' as const },
+  { label: '30 分钟', labelEn: '30 min', value: 30, kind: 'preset' as const },
+  { label: '1 小时', labelEn: '1 hour', value: 60, kind: 'preset' as const },
+  { label: '1.5 小时', labelEn: '1.5 hours', value: 90, kind: 'preset' as const },
+  { label: '2 小时', labelEn: '2 hours', value: 120, kind: 'preset' as const },
 ];
+
+const DEFAULT_CUSTOM_INTERVAL_OPTION = {
+  label: '3 小时',
+  labelEn: '3 hours',
+  value: 180,
+  kind: 'defaultCustom' as const,
+};
 
 const LANGUAGE_OPTIONS = [
   { label: '中文', value: 'zh' as const },
@@ -184,6 +190,26 @@ function formatTimeInput(value: string): string {
 function isValidTimeInput(value: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
+
+function formatIntervalLabel(minutes: number, language: 'zh' | 'en'): string {
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return language === 'en' ? `${hours} ${hours === 1 ? 'hour' : 'hours'}` : `${hours} 小时`;
+  }
+
+  if (minutes > 60) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return language === 'en' ? `${hours}h ${rest}min` : `${hours}小时${rest}分钟`;
+  }
+
+  return language === 'en' ? `${minutes} min` : `${minutes} 分钟`;
+}
+
+function normalizeReminderTimes(times: string[]): string[] {
+  return [...new Set(times.filter(isValidTimeInput))].sort();
+}
+
 const ACTIVITY_LEVELS: {
   value: ActivityLevel;
   title: string;
@@ -445,6 +471,11 @@ export default function SettingsScreen() {
   const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
   const [quietStartInput, setQuietStartInput] = React.useState(settings.reminderQuietStart);
   const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
+  const [customReminderIntervalInput, setCustomReminderIntervalInput] = React.useState(
+    settings.reminderCustomInterval > 0 ? String(settings.reminderCustomInterval) : '',
+  );
+  const [reminderTimeInput, setReminderTimeInput] = React.useState('');
+  const [reminderTimesInput, setReminderTimesInput] = React.useState<string[]>(settings.reminderTimes);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
   const [isQuietModalVisible, setIsQuietModalVisible] = React.useState(false);
@@ -482,6 +513,17 @@ export default function SettingsScreen() {
       reminderDescription: 'Receive quiet hydration reminders.',
       quietTitle: 'Quiet hours',
       quietDescription: 'No hydration reminders during this time.',
+      reminderDetailTitle: 'Reminder settings',
+      reminderDetailDescription: 'Use exact times when set; otherwise Soma follows the interval.',
+      customIntervalTitle: 'Custom interval',
+      customIntervalDescription: 'Leave empty to keep the preset options.',
+      customIntervalPlaceholder: 'Minutes',
+      exactTimeTitle: 'Exact reminder times',
+      exactTimeDescription: 'Specific times are used before interval reminders.',
+      exactTimeEmpty: 'No exact times yet.',
+      addTime: 'Add',
+      reminderSettingsSave: 'Save settings',
+      intervalInvalid: 'Use 5-720 minutes.',
       quietStart: 'From',
       quietEnd: 'To',
       quietSave: 'Save',
@@ -591,7 +633,14 @@ export default function SettingsScreen() {
   React.useEffect(() => {
     setQuietStartInput(settings.reminderQuietStart);
     setQuietEndInput(settings.reminderQuietEnd);
-  }, [settings.reminderQuietEnd, settings.reminderQuietStart]);
+    setCustomReminderIntervalInput(settings.reminderCustomInterval > 0 ? String(settings.reminderCustomInterval) : '');
+    setReminderTimesInput(settings.reminderTimes);
+  }, [
+    settings.reminderCustomInterval,
+    settings.reminderQuietEnd,
+    settings.reminderQuietStart,
+    settings.reminderTimes,
+  ]);
   const localizedActivityLevels = React.useMemo(
     () => ACTIVITY_LEVELS.map((option) => ({
       ...option,
@@ -626,6 +675,31 @@ export default function SettingsScreen() {
   const quietSummary = copy.quietSummary
     .replace('{start}', quietStartInput || '--:--')
     .replace('{end}', quietEndInput || '--:--');
+  const parsedCustomReminderInterval = Number.parseInt(customReminderIntervalInput, 10);
+  const hasCustomReminderIntervalInput = customReminderIntervalInput.trim().length > 0;
+  const isCustomReminderIntervalValid = !hasCustomReminderIntervalInput
+    || (Number.isFinite(parsedCustomReminderInterval)
+      && parsedCustomReminderInterval >= 5
+      && parsedCustomReminderInterval <= 720);
+  const activeReminderTimes = normalizeReminderTimes(reminderTimesInput);
+  const reminderModeSummary = activeReminderTimes.length > 0
+    ? (isEnglish
+      ? `${activeReminderTimes.length} exact ${activeReminderTimes.length === 1 ? 'time' : 'times'}`
+      : `??? ${activeReminderTimes.length} ?????`)
+    : (isEnglish
+      ? `Every ${formatIntervalLabel(settings.reminderInterval, language)}`
+      : `? ${formatIntervalLabel(settings.reminderInterval, language)}??`);
+  const customIntervalOption = settings.reminderCustomInterval > 0
+    ? {
+      label: isEnglish
+        ? `Custom ${formatIntervalLabel(settings.reminderCustomInterval, language)}`
+        : `??? ${formatIntervalLabel(settings.reminderCustomInterval, language)}`,
+      labelEn: `Custom ${formatIntervalLabel(settings.reminderCustomInterval, 'en')}`,
+      value: settings.reminderCustomInterval,
+      kind: 'custom' as const,
+    }
+    : DEFAULT_CUSTOM_INTERVAL_OPTION;
+  const reminderIntervalOptions = [...BASE_INTERVALS, customIntervalOption];
   const parsedWeightKg = Number.parseFloat(weightKg);
   const isWeightValid = Number.isFinite(parsedWeightKg) && parsedWeightKg > 0;
   const selectedActivity = ACTIVITY_LEVELS.find((option) => option.value === activityLevel) ?? ACTIVITY_LEVELS[0];
@@ -753,12 +827,30 @@ export default function SettingsScreen() {
     setCustomCupSize('');
   };
 
-  const saveQuietWindow = () => {
-    if (!isQuietWindowValid) {
+  const addReminderTime = () => {
+    if (!isValidTimeInput(reminderTimeInput)) {
       return;
     }
 
+    setReminderTimesInput(normalizeReminderTimes([...reminderTimesInput, reminderTimeInput]));
+    setReminderTimeInput('');
+  };
+
+  const removeReminderTime = (time: string) => {
+    setReminderTimesInput(reminderTimesInput.filter((item) => item !== time));
+  };
+
+  const saveReminderSettings = () => {
+    if (!isQuietWindowValid || !isCustomReminderIntervalValid) {
+      return;
+    }
+
+    const nextCustomInterval = hasCustomReminderIntervalInput ? parsedCustomReminderInterval : 0;
     updateSettings({
+      reminderEnabled: true,
+      reminderInterval: nextCustomInterval > 0 ? nextCustomInterval : settings.reminderInterval,
+      reminderCustomInterval: nextCustomInterval,
+      reminderTimes: activeReminderTimes,
       reminderQuietStart: quietStartInput,
       reminderQuietEnd: quietEndInput,
     });
@@ -864,7 +956,7 @@ export default function SettingsScreen() {
           {copy.reminderDescription}
         </Text>
         <View style={styles.chipGroup}>
-          {INTERVALS.map((interval) => {
+          {reminderIntervalOptions.map((interval) => {
             const isSelected = interval.value === 0
               ? !settings.reminderEnabled
               : settings.reminderEnabled && settings.reminderInterval === interval.value;
@@ -875,11 +967,12 @@ export default function SettingsScreen() {
                 selected={isSelected}
                 onPress={() => {
                   if (interval.value === 0) {
-                    updateSettings({ reminderEnabled: false });
+                    updateSettings({ reminderEnabled: false, reminderTimes: [] });
                   } else {
                     updateSettings({
                       reminderEnabled: true,
                       reminderInterval: interval.value,
+                      reminderTimes: [],
                     });
                   }
                 }}
@@ -891,6 +984,9 @@ export default function SettingsScreen() {
           onPress={() => {
             setQuietStartInput(settings.reminderQuietStart);
             setQuietEndInput(settings.reminderQuietEnd);
+            setCustomReminderIntervalInput(settings.reminderCustomInterval > 0 ? String(settings.reminderCustomInterval) : '');
+            setReminderTimesInput(settings.reminderTimes);
+            setReminderTimeInput('');
             setIsQuietModalVisible(true);
           }}
           style={({ pressed }) => [
@@ -900,11 +996,11 @@ export default function SettingsScreen() {
         >
           <View style={styles.quietEntryLeft}>
             <View style={styles.quietEntryIcon}>
-              <Feather name="moon" size={15} color={colors.primary} />
+              <Feather name="clock" size={15} color={colors.primary} />
             </View>
             <View style={styles.quietEntryCopy}>
-              <Text style={styles.quietEntryTitle}>{copy.quietTitle}</Text>
-              <Text style={styles.quietEntrySummary}>{quietSummary}</Text>
+              <Text style={styles.quietEntryTitle}>{copy.reminderDetailTitle}</Text>
+              <Text style={styles.quietEntrySummary}>{reminderModeSummary}</Text>
             </View>
           </View>
           <Feather name="chevron-right" size={18} color={colors.textSecondary} />
@@ -1153,8 +1249,8 @@ export default function SettingsScreen() {
           >
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderCopy}>
-                <Text style={styles.modalTitle}>{copy.quietTitle}</Text>
-                <Text style={styles.modalDescription}>{copy.quietDescription}</Text>
+                <Text style={styles.modalTitle}>{copy.reminderDetailTitle}</Text>
+                <Text style={styles.modalDescription}>{copy.reminderDetailDescription}</Text>
               </View>
               <SoftPressable
                 onPress={() => setIsQuietModalVisible(false)}
@@ -1168,6 +1264,94 @@ export default function SettingsScreen() {
                 <Feather name="x" size={21} color={colors.textSecondary} />
               </SoftPressable>
             </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.systemModalContent}
+            >
+            <View style={[styles.quietSection, styles.quietModalPanel]}>
+              <View style={styles.quietHeader}>
+                <View style={styles.quietTitleRow}>
+                  <Feather name="repeat" size={15} color={colors.textSecondary} />
+                  <Text style={styles.quietTitle}>{copy.customIntervalTitle}</Text>
+                </View>
+                <Text style={styles.quietSummary}>{copy.customIntervalDescription}</Text>
+              </View>
+              <View style={styles.customControl}>
+                <View style={styles.customInputShell}>
+                  <TextInput
+                    value={customReminderIntervalInput}
+                    onChangeText={(value) => setCustomReminderIntervalInput(value.replace(/\D/g, '').slice(0, 3))}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                    placeholder={copy.customIntervalPlaceholder}
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.customInput}
+                  />
+                  <Text style={styles.inputUnit}>min</Text>
+                </View>
+              </View>
+              {!isCustomReminderIntervalValid ? (
+                <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
+              ) : null}
+            </View>
+
+            <View style={[styles.quietSection, styles.quietModalPanel]}>
+              <View style={styles.quietHeader}>
+                <View style={styles.quietTitleRow}>
+                  <Feather name="bell" size={15} color={colors.textSecondary} />
+                  <Text style={styles.quietTitle}>{copy.exactTimeTitle}</Text>
+                </View>
+                <Text style={styles.quietSummary}>{copy.exactTimeDescription}</Text>
+              </View>
+              <View style={styles.reminderTimeList}>
+                {reminderTimesInput.length > 0 ? reminderTimesInput.map((time) => (
+                  <SoftPressable
+                    key={time}
+                    onPress={() => removeReminderTime(time)}
+                    style={({ pressed }) => [
+                      styles.reminderTimePill,
+                      pressed && styles.estimateButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.reminderTimePillText}>{time} x</Text>
+                  </SoftPressable>
+                )) : (
+                  <Text style={styles.quietSummary}>{copy.exactTimeEmpty}</Text>
+                )}
+              </View>
+              <View style={styles.customControl}>
+                <View style={styles.customInputShell}>
+                  <TextInput
+                    value={reminderTimeInput}
+                    onChangeText={(value) => setReminderTimeInput(formatTimeInput(value))}
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    placeholder="09:00"
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.customInput}
+                  />
+                </View>
+                <SoftPressable
+                  onPress={addReminderTime}
+                  disabled={!isValidTimeInput(reminderTimeInput)}
+                  style={({ pressed }) => [
+                    styles.saveButton,
+                    pressed && isValidTimeInput(reminderTimeInput) && styles.saveButtonPressed,
+                    !isValidTimeInput(reminderTimeInput) && styles.saveButtonDisabled,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.saveButtonText,
+                      !isValidTimeInput(reminderTimeInput) && styles.saveButtonTextDisabled,
+                    ]}
+                  >
+                    {copy.addTime}
+                  </Text>
+                </SoftPressable>
+              </View>
+            </View>
+
             <View style={[styles.quietSection, styles.quietModalPanel]}>
               <View style={styles.quietHeader}>
                 <View style={styles.quietTitleRow}>
@@ -1212,24 +1396,25 @@ export default function SettingsScreen() {
                 <Text style={styles.quietInvalidText}>{copy.quietInvalid}</Text>
               ) : null}
               <SoftPressable
-                onPress={saveQuietWindow}
-                disabled={!isQuietWindowValid}
+                onPress={saveReminderSettings}
+                disabled={!isQuietWindowValid || !isCustomReminderIntervalValid}
                 style={({ pressed }) => [
                   styles.modalPrimaryButton,
-                  pressed && isQuietWindowValid && styles.saveButtonPressed,
-                  !isQuietWindowValid && styles.saveButtonDisabled,
+                  pressed && isQuietWindowValid && isCustomReminderIntervalValid && styles.saveButtonPressed,
+                  (!isQuietWindowValid || !isCustomReminderIntervalValid) && styles.saveButtonDisabled,
                 ]}
               >
                 <Text
                   style={[
                     styles.modalPrimaryText,
-                    !isQuietWindowValid && styles.saveButtonTextDisabled,
+                    (!isQuietWindowValid || !isCustomReminderIntervalValid) && styles.saveButtonTextDisabled,
                   ]}
                 >
-                  {copy.quietSave}
+                  {copy.reminderSettingsSave}
                 </Text>
               </SoftPressable>
             </View>
+            </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1593,6 +1778,26 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 18,
+  },
+  reminderTimeList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: layout.s(8),
+  },
+  reminderTimePill: {
+    minHeight: layout.s(34),
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.primarySoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: layout.s(12),
+  },
+  reminderTimePillText: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(13),
   },
   quietTimeRow: {
     flexDirection: 'row',

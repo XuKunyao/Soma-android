@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 通知调度工具 — 管理喝水提醒通知
  *
  * 为什么用 expo-notifications？
@@ -20,6 +20,7 @@ type NotificationsModule = typeof ExpoNotifications;
 
 type ReminderScheduleOptions = {
   intervalMinutes: number;
+  reminderTimes?: string[];
   language?: LanguagePreference;
   quietStart?: string;
   quietEnd?: string;
@@ -28,22 +29,29 @@ type ReminderScheduleOptions = {
 const MINUTES_PER_DAY = 24 * 60;
 const DEFAULT_QUIET_START = '22:00';
 const DEFAULT_QUIET_END = '08:00';
+const REMINDER_CHANNEL_ID = 'water-reminders-v2';
 
 /** 温暖的提醒文案集合 */
 const REMINDER_MESSAGES: Record<LanguagePreference, { title: string; body: string }[]> = {
   zh: [
-    { title: '该喝水啦', body: '照顾好自己，喝杯水吧 🌿' },
-    { title: '休息一下', body: '起来活动活动，顺便喝杯水 💧' },
-    { title: '补充水分', body: '记得喝水哦，保持好状态 🍃' },
-    { title: '喝水时间', body: '给自己一杯温水，放松一下 ☕' },
-    { title: '温馨提醒', body: '今天的水喝够了吗？来一杯吧 🌸' },
+    { title: '该喝水啦', body: '照顾好自己，喝杯水吧' },
+    { title: '温馨提醒', body: '放下手里的事，慢慢喝一口水' },
+    { title: '补充水分', body: '给身体一点清爽的照顾' },
+    { title: '喝水时间', body: '小小一杯水，也是在照顾今天的自己' },
+    { title: '休息一下', body: '起身活动一下，顺便喝杯水吧' },
+    { title: '轻轻提醒', body: '如果方便，现在可以喝几口水' },
+    { title: '给自己一杯水', body: '不急，慢慢喝就好' },
+    { title: '保持水分', body: '今天也记得温柔地照顾自己' },
   ],
   en: [
-    { title: 'Time for water', body: 'Take a quiet moment and drink a glass 🌿' },
-    { title: 'A gentle pause', body: 'Stretch a little, then sip some water 💧' },
-    { title: 'Hydration reminder', body: 'A small glass now helps the day feel easier 🍃' },
-    { title: 'Water break', body: 'Give yourself a glass of water and breathe ☕' },
-    { title: 'Kind reminder', body: 'Have you had enough water today? 🌸' },
+    { title: 'Time for water', body: 'Take a quiet moment and drink a glass' },
+    { title: 'A gentle pause', body: 'Set things down and take a few sips' },
+    { title: 'Hydration reminder', body: 'A small glass now helps the day feel easier' },
+    { title: 'Water break', body: 'Give yourself a glass of water and breathe' },
+    { title: 'Kind reminder', body: 'A few sips would be good right now' },
+    { title: 'Stay hydrated', body: 'Care for yourself in this small way' },
+    { title: 'A glass for you', body: 'No rush. Drink slowly' },
+    { title: 'Gentle hydration', body: 'Your body may appreciate a little water' },
   ],
 };
 
@@ -115,10 +123,31 @@ function buildReminderTimes(intervalMinutes: number, quietStartValue?: string, q
   return times.sort((a, b) => a - b);
 }
 
-function pickReminderMessage(language: LanguagePreference): { title: string; body: string } {
-  const messages = REMINDER_MESSAGES[language];
-  return messages[Math.floor(Math.random() * messages.length)];
+
+function buildSpecificReminderTimes(times: string[] | undefined, quietStartValue?: string, quietEndValue?: string): number[] {
+  const quietStart = parseTimeToMinutes(quietStartValue, DEFAULT_QUIET_START);
+  const quietEnd = parseTimeToMinutes(quietEndValue, DEFAULT_QUIET_END);
+  const seen = new Set<number>();
+
+  (times ?? []).forEach((time) => {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      return;
+    }
+
+    const minuteOfDay = parseTimeToMinutes(time, DEFAULT_QUIET_END);
+    if (!isWithinQuietWindow(minuteOfDay, quietStart, quietEnd)) {
+      seen.add(minuteOfDay);
+    }
+  });
+
+  return [...seen].sort((a, b) => a - b);
 }
+
+function pickReminderMessageAt(language: LanguagePreference, index: number): { title: string; body: string } {
+  const messages = REMINDER_MESSAGES[language];
+  return messages[index % messages.length];
+}
+
 
 /**
  * 配置通知的显示行为
@@ -131,7 +160,7 @@ export function configureNotifications(): void {
         shouldShowAlert: true,
         shouldShowBanner: true,
         shouldShowList: true,
-        shouldPlaySound: false,   // 不播放声音，保持安静
+        shouldPlaySound: true,    // Follow system sound mode; silent devices should vibrate only
         shouldSetBadge: false,
       }),
     });
@@ -149,10 +178,11 @@ export async function ensureNotificationChannel(): Promise<void> {
     return;
   }
 
-  await Notifications.setNotificationChannelAsync('water-reminders', {
+  await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: 'Water reminders',
     importance: Notifications.AndroidImportance.DEFAULT,
-    vibrationPattern: [0, 250, 250, 250],
+    sound: 'default',
+    vibrationPattern: [0, 180, 120, 180],
     lightColor: '#D97757',
   });
 }
@@ -186,6 +216,7 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
 
   const {
     intervalMinutes,
+    reminderTimes: specificReminderTimes,
     language = 'zh',
     quietStart = DEFAULT_QUIET_START,
     quietEnd = DEFAULT_QUIET_END,
@@ -193,21 +224,25 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
 
   await cancelAllReminders();
 
-  const reminderTimes = buildReminderTimes(intervalMinutes, quietStart, quietEnd);
+  const exactTimes = buildSpecificReminderTimes(specificReminderTimes, quietStart, quietEnd);
+  const reminderTimes = exactTimes.length > 0
+    ? exactTimes
+    : buildReminderTimes(intervalMinutes, quietStart, quietEnd);
 
-  await Promise.all(reminderTimes.map((minuteOfDay) => {
-    const message = pickReminderMessage(language);
+  await Promise.all(reminderTimes.map((minuteOfDay, index) => {
+    const message = pickReminderMessageAt(language, index);
     const { hour, minute } = toTimeParts(minuteOfDay);
 
     return Notifications.scheduleNotificationAsync({
+      identifier: `soma-water-reminder-${minuteOfDay}`,
       content: {
         title: message.title,
         body: message.body,
-        sound: false,
+        sound: 'default',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        channelId: 'water-reminders',
+        channelId: REMINDER_CHANNEL_ID,
         hour,
         minute,
       },
@@ -223,4 +258,5 @@ export async function cancelAllReminders(): Promise<void> {
   }
 
   await Notifications.cancelAllScheduledNotificationsAsync();
+  await Notifications.dismissAllNotificationsAsync();
 }

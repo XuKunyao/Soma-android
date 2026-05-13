@@ -24,6 +24,8 @@ export interface WaterSettings {
   dailyGoal: number;
   cupSize: number;
   reminderInterval: number;
+  reminderCustomInterval: number;
+  reminderTimes: string[];
   reminderEnabled: boolean;
   reminderQuietStart: string;
   reminderQuietEnd: string;
@@ -36,6 +38,8 @@ export const DEFAULT_SETTINGS: WaterSettings = {
   dailyGoal: 2000,
   cupSize: 250,
   reminderInterval: 60,
+  reminderCustomInterval: 0,
+  reminderTimes: [],
   reminderEnabled: true,
   reminderQuietStart: '22:00',
   reminderQuietEnd: '08:00',

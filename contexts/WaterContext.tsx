@@ -204,6 +204,7 @@ export function WaterProvider({ children }: { children: ReactNode }) {
       if (state.settings.reminderEnabled) {
         scheduleWaterReminder({
           intervalMinutes: state.settings.reminderInterval,
+          reminderTimes: state.settings.reminderTimes,
           language: state.settings.language,
           quietStart: state.settings.reminderQuietStart,
           quietEnd: state.settings.reminderQuietEnd,
