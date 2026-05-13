@@ -15,6 +15,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { useFonts, DMSans_400Regular, DMSans_500Medium } from '@expo-google-fonts/dm-sans';
 import { useEffect } from 'react';
+import { Text, TextInput } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -25,6 +26,28 @@ import {
   requestPermissions,
 } from '@/utils/notifications';
 import { useAppTheme } from '@/hooks/useAppTheme';
+
+type FontScalableComponent = {
+  defaultProps?: Record<string, unknown>;
+};
+
+const fixedTextScale = {
+  allowFontScaling: false,
+  maxFontSizeMultiplier: 1,
+};
+
+const textComponent = Text as unknown as FontScalableComponent;
+const textInputComponent = TextInput as unknown as FontScalableComponent;
+
+textComponent.defaultProps = {
+  ...textComponent.defaultProps,
+  ...fixedTextScale,
+};
+
+textInputComponent.defaultProps = {
+  ...textInputComponent.defaultProps,
+  ...fixedTextScale,
+};
 
 // 在字体加载完成前，保持启动屏可见
 SplashScreen.preventAutoHideAsync();
