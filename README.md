@@ -1,148 +1,145 @@
-# Soma
+<div align="center">
 
-![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-8B7CF6?style=flat-square&logo=expo&logoColor=white)
-![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Android](https://img.shields.io/badge/Android-Preview-3DDC84?style=flat-square&logo=android&logoColor=white)
-![Status](https://img.shields.io/badge/Status-MVP-D97757?style=flat-square)
-![Theme](https://img.shields.io/badge/Theme-Light%20%2F%20Dark-A67C63?style=flat-square)
-![Language](https://img.shields.io/badge/Language-ZH%20%2F%20EN-7A9A6D?style=flat-square)
-![Storage](https://img.shields.io/badge/Storage-Local-69A297?style=flat-square)
-![Notifications](https://img.shields.io/badge/Notifications-Local-E18A68?style=flat-square)
-![Reanimated](https://img.shields.io/badge/Motion-Reanimated-CB8E67?style=flat-square)
+<img src="assets/images/icon.png" width="128" height="128" style="border-radius: 24px;" alt="Soma" />
 
-Soma 是一款温暖、安静、克制的喝水提醒应用。它不把饮水管理做成焦虑的打卡任务，而是用柔和的进度、轻量的记录和本地提醒，帮助用户在日常节奏里照顾自己。
+# Soma · 喝水提醒助手
 
-当前版本聚焦 Android 预览体验，已支持今日进度、快速记录、历史统计、个性化目标估算、杯量设置、本地通知提醒、勿扰时间段、中英双语和跟随系统的深浅色外观。
+**温暖、安静、克制的饮水记录应用**
 
-## Product Direction
+Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的记录和本地提醒，帮助你在日常节奏里照顾自己。
 
-Soma 的设计目标是成为一个低刺激的日常工具：
+[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-8B7CF6?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=white)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white)](#download)
+[![Version](https://img.shields.io/badge/Version-1.0.2-D97757?style=flat-square)](#download)
+[![Theme](https://img.shields.io/badge/Theme-Light%20%2F%20Dark-A67C63?style=flat-square)](#design)
+[![Language](https://img.shields.io/badge/Language-ZH%20%2F%20EN-7A9A6D?style=flat-square)](#features)
+[![Storage](https://img.shields.io/badge/Data-Local%20Only-69A297?style=flat-square)](#features)
+[![License](https://img.shields.io/badge/License-MIT-E8E2D9?style=flat-square)](#license)
 
-- 温暖浅色与暖灰深色主题，避免纯白、纯黑、冷灰、霓虹色和强科技感。
-- 首页只强调一件事：今天喝了多少水。
-- 数据展示保持轻量，帮助回顾节律，而不是制造压力。
-- 设置体验尽量清楚、安静，不把健康参数做成复杂表单。
-- 动效保持克制，按钮和弹窗只提供轻柔反馈。
+</div>
 
-## Core Features
+<br />
 
-- **今日进度**：用柔和圆形进度展示当前饮水量和每日目标。
-- **快速记录**：点击“喝了一杯”记录当前杯量，默认 250ml。
-- **记录撤销**：今日记录支持左滑删除，对应总量会同步更新。
-- **历史统计**：按日、周、月、年查看饮水汇总、趋势和目标差值。
-- **目标估算**：根据体重、性别参考、活动量和饮食习惯估算每日喝水目标。
-- **自定义设置**：支持每日目标、提醒间隔、勿扰时间段、预设杯量和自定义杯量。
-- **本地提醒**：使用 Expo Notifications 调度系统本地通知，并支持夜间勿扰。
-> 提醒说明：development build 或 APK 中会把提醒注册到手机系统本地通知；Expo Go 主要用于界面预览，当前代码会跳过实际通知调度。
-- **本地存储**：饮水记录和设置保存在设备本地。
-- **系统设置**：支持中英双语、跟随系统深浅色、数据导出和关于 Soma。
+<!-- 
+  截图占位 — 替换为实际应用截图后取消注释
+  建议准备 3 张截图：首页进度、历史统计、设置页面
+  推荐尺寸：每张宽度 240px，放在同一行
 
-## Design System
+<div align="center">
+  <img src="docs/screenshots/home.png" width="240" alt="今日进度" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/history.png" width="240" alt="历史统计" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/settings.png" width="240" alt="个性化设置" />
+</div>
 
-视觉方向是温暖、轻量、留白充足，整体气质接近一本安静的生活笔记。
+<br />
+-->
 
-核心色彩位于 [`constants/theme.ts`](constants/theme.ts)：
+## 📦 Download
 
-| Token | Value | Usage |
-| --- | --- | --- |
-| Background | `#F5F0E8` | 页面背景 |
-| Surface | `#FDFAF4` | 卡片和浮层 |
-| Primary | `#D97757` | 主按钮、关键进度 |
-| Text | `#1A1612` | 主文字 |
-| Secondary Text | `#6B6560` | 辅助说明 |
-| Border | `#E8E2D9` | 细边框和分割线 |
+前往 [GitHub Releases](https://github.com/XuKunyao/Soma-android/releases) 页面下载最新版 APK，安装到 Android 设备即可使用。
 
-## Hydration Estimate
+当前最新版本为 **v1.0.2**，支持 Android 设备。
 
-Soma 估算的是 App 中用于记录和提醒的“建议喝水目标”，不是包含食物水分在内的全天总水摄入。它只适合作为健康成年人的日常参考，不替代医生或营养师建议。
+## ✨ Features
 
-当前算法：
+1、**今日进度：** 首页用柔和的圆形进度环展示当前饮水量和每日目标。打开应用，你只需要关注一件事：今天喝了多少水。整个界面保持克制，不堆砌数据，不制造焦虑。
 
-```text
-基础喝水量 = 未指定 1600ml / 女性 1500ml / 男性 1700ml
-参考体重 = 未指定 60kg / 女性 55kg / 男性 65kg
-体重修正 = (当前体重 - 参考体重) × 14
-饮食修正 = 清淡多蔬果 -100ml / 均衡日常 0ml / 偏咸外卖多 +200ml
-活动补充 = 久坐办公 0ml / 轻度活动 200ml / 中度活动 400ml / 高强度 700ml
-最终目标 = clamp(round(基础喝水量 + 体重修正 + 饮食修正 + 活动补充, 50ml), 1200ml, 3000ml)
+2、**一键记录：** 点击「喝了一杯」即可记录当前杯量，默认 250ml。你也可以在设置中自定义杯量大小或选择预设规格。今日记录支持左滑删除，饮水总量会同步更新。
+
+3、**历史统计：** 按日、周、月、年查看饮水汇总和趋势。数据展示以回顾节律为目的，帮助你了解自己的饮水习惯，而不是用数字施加压力。
+
+4、**智能目标估算：** 根据体重、性别参考、活动量和饮食习惯，为你生成个性化的每日饮水建议。算法参考《中国居民膳食指南（2022）》的日常饮水量范围，区分「喝水目标」和包含食物水分的「总水摄入」。估算结果仅适合作为健康成年人的日常参考，不替代医疗建议。
+
+5、**本地提醒：** 使用系统本地通知定时提醒你喝水，支持自定义提醒间隔和勿扰时间段。所有提醒调度在设备本地完成，不依赖任何服务器。
+
+6、**中英双语 & 深色模式：** 界面语言可在中文和英文之间自由切换。外观支持跟随系统的浅色和深色主题，深色模式采用暖灰色调而非纯黑，在夜间使用时温暖不刺眼。
+
+7、**隐私优先：** 所有饮水记录和设置数据都保存在设备本地，Soma 不收集任何用户信息，不上传任何数据到服务器。
+
+## 🎨 Design
+
+Soma 的视觉方向追求温暖与克制。色调上避免纯白、纯黑、冷灰和高饱和霓虹色，整体气质像一本安静的生活笔记。动效保持轻柔，按钮和弹窗只提供必要的交互反馈。
+
+核心色彩对照：
+
+| Token | Light | Dark |
+| :--- | :--- | :--- |
+| Background | `#F5F0E8` | `#1F1A17` |
+| Surface | `#FDFAF4` | `#29231F` |
+| Primary | `#D97757` | `#E18A68` |
+| Text | `#1A1612` | `#F4EFE8` |
+| Secondary | `#6B6560` | `#B9AEA5` |
+| Border | `#E8E2D9` | `#463D36` |
+
+完整的色彩、字号、间距和阴影定义位于 [`constants/theme.ts`](constants/theme.ts)，采用 DM Sans 字体。
+
+## 🛠 Tech Stack
+
+| 类别 | 技术 |
+| :--- | :--- |
+| 框架 | [Expo](https://expo.dev/) + [React Native](https://reactnative.dev/) |
+| 路由 | [Expo Router](https://docs.expo.dev/router/introduction/) — 基于文件系统的路由与 Tab 导航 |
+| 语言 | [TypeScript](https://www.typescriptlang.org/) |
+| 状态管理 | React Context + useReducer |
+| 本地存储 | [AsyncStorage](https://react-native-async-storage.github.io/async-storage/) |
+| 本地通知 | [Expo Notifications](https://docs.expo.dev/versions/latest/sdk/notifications/) |
+| 动效 | [Reanimated](https://docs.swmansion.com/react-native-reanimated/) + [Gesture Handler](https://docs.swmansion.com/react-native-gesture-handler/) |
+| 图形 | [React Native SVG](https://github.com/software-mansion/react-native-svg) |
+
+## 📁 Project Structure
+
 ```
-
-算法参考《中国居民膳食指南（2022）》的日常喝水建议，并区分“喝水目标”和包含食物水分的“总水摄入”。肾脏、心脏疾病、孕期、哺乳期、特殊用药或医嘱限制饮水的人群，应按专业医疗建议调整。
-
-## Tech Stack
-
-- [Expo](https://expo.dev/)：开发、运行和预览 React Native 应用。
-- [React Native](https://reactnative.dev/)：移动端界面框架。
-- [Expo Router](https://docs.expo.dev/router/introduction/)：文件路由和 Tab 导航。
-- [TypeScript](https://www.typescriptlang.org/)：类型检查。
-- [AsyncStorage](https://react-native-async-storage.github.io/async-storage/)：本地记录和设置存储。
-- [Expo Notifications](https://docs.expo.dev/versions/latest/sdk/notifications/)：本地通知提醒。
-- [React Native SVG](https://github.com/software-mansion/react-native-svg)：圆形进度绘制。
-- [React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/)：轻量交互动效。
-
-## Run Locally
-
-安装依赖：
-
-```bash
-npm install
-```
-
-启动 Expo：
-
-```bash
-npm.cmd run start
-```
-
-打开 Android 模拟器：
-
-```bash
-npm.cmd run android
-```
-
-如果需要清理 Metro 缓存：
-
-```bash
-npx.cmd expo start -c --android
-```
-
-> Expo Go 适合预览界面和基础交互。通知、启动页和应用图标等原生能力，需要 development build 或 APK 才能完整验证。
-
-## Project Structure
-
-```text
 app/
-  _layout.tsx              # 应用入口：字体、通知、全局状态
+  _layout.tsx                # 根布局：字体加载、通知初始化、全局状态注入
   (tabs)/
-    _layout.tsx            # 底部 Tab 导航
-    index.tsx              # 首页：进度、按钮、今日记录
-    history.tsx            # 记录页：历史汇总和趋势
-    settings.tsx           # 设置页：目标估算、杯量、提醒间隔和勿扰时间段
+    _layout.tsx              # 底部 Tab 导航配置
+    index.tsx                # 首页：进度环、快速记录、今日饮水列表
+    history.tsx              # 历史：日 / 周 / 月 / 年统计与趋势
+    settings.tsx             # 设置：目标估算、杯量、提醒间隔、勿扰、语言、外观
 components/
-  GreetingHeader.tsx       # 时间问候
-  WaterProgress.tsx        # 圆形饮水进度
-  WaterLogItem.tsx         # 单条饮水记录
+  GreetingHeader.tsx         # 基于时间段的问候语
+  WaterProgress.tsx          # SVG 圆形饮水进度组件
+  WaterLogItem.tsx           # 单条饮水记录（支持左滑删除）
 constants/
-  theme.ts                 # 色彩、字号、阴影和间距
+  theme.ts                   # 设计系统：色彩、字号、圆角、阴影、间距
 contexts/
-  WaterContext.tsx         # 全局饮水状态
+  WaterContext.tsx            # 全局饮水状态管理（Context + useReducer）
+hooks/
+  useAppTheme.ts             # 主题 Hook：跟随系统深浅色
 utils/
-  notifications.ts         # 本地提醒
-  storage.ts               # 本地存储
+  notifications.ts           # 本地通知调度与权限管理
+  storage.ts                 # AsyncStorage 数据读写封装
 ```
 
-## Roadmap
+## 💻 Development
 
-- [x] 今日饮水进度
-- [x] 快速添加和删除饮水记录
-- [x] 设置每日目标、杯量和提醒间隔
-- [x] 个性化喝水目标估算
-- [x] 本地通知提醒
-- [x] 日、周、月、年历史统计
-- [x] 温暖浅色和暖灰深色视觉系统
-- [x] 中英双语系统设置
-- [x] 应用图标和启动页资源接入
-- [x] 自定义提醒时间段
-- [ ] APK / development build 验证
-- [ ] 空状态和提醒场景插图补充
+如果你想在本地构建和调试 Soma，需要 Node.js 18+ 环境。
+
+```bash
+# 克隆仓库
+git clone https://github.com/XuKunyao/Soma-android.git
+cd Soma-android
+
+# 安装依赖
+npm install
+
+# 启动 Expo 开发服务器，扫码或连接模拟器预览
+npx expo start
+```
+
+> Expo Go 适合预览界面和基础交互。通知、启动页和应用图标等原生能力，需要 [development build](https://docs.expo.dev/develop/development-builds/introduction/) 才能完整验证。
+
+## 🗺 Roadmap
+
+- [ ] 空状态与场景插图补充
+- [ ] 饮水成就与里程碑系统
+- [ ] Widget 桌面小组件
+- [ ] 数据导出与备份
+
+## License
+
+[MIT](LICENSE) © Soma
