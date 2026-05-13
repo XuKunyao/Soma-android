@@ -2,7 +2,7 @@
   "expo": {
     "name": "Soma",
     "slug": "soma",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "soma",
@@ -13,11 +13,10 @@
     },
     "android": {
       "package": "com.xukunyao.soma",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#D97757",
-        "foregroundImage": "./assets/images/icon.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/android-adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false

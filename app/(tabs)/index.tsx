@@ -16,7 +16,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   ScrollView,
@@ -30,6 +29,7 @@ import { useWater } from '@/contexts/WaterContext';
 import { WaterProgress } from '@/components/WaterProgress';
 import { WaterLogItem } from '@/components/WaterLogItem';
 import { GreetingHeader } from '@/components/GreetingHeader';
+import { AppText as Text } from '@/components/fixed-scale-text';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();

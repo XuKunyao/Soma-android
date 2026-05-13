@@ -15,11 +15,9 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  TextInput,
   Modal,
   KeyboardAvoidingView,
   Image,
@@ -44,6 +42,7 @@ import Animated, {
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/fixed-scale-text';
 import { buildWaterDataExport } from '@/utils/storage';
 
 /** 可选的单次饮水量 */

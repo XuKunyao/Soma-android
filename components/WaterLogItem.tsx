@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { AppText as Text } from '@/components/fixed-scale-text';
 import { Feather } from '@expo/vector-icons';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
