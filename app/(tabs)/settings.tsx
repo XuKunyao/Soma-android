@@ -22,6 +22,7 @@ import {
   KeyboardAvoidingView,
   Image,
   Platform,
+  useWindowDimensions,
   Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -86,6 +87,8 @@ type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high';
 type SexProfile = 'unspecified' | 'female' | 'male';
 type DietProfile = 'hydrating' | 'balanced' | 'salty';
 type PressableStyle = React.ComponentProps<typeof Pressable>['style'];
+type SettingsLayout = ReturnType<typeof createSettingsLayout>;
+
 type SoftPressableProps = Omit<React.ComponentProps<typeof Pressable>, 'style'> & {
   scaleTo?: number;
   style?: PressableStyle;
@@ -136,6 +139,36 @@ function SoftPressable({
       {children}
     </AnimatedPressable>
   );
+}
+
+
+function createSettingsLayout(width: number) {
+  const scale = Math.min(1, Math.max(0.82, width / 410));
+  const compact = width < 380;
+  const s = (value: number) => Math.round(value * scale);
+
+  return {
+    scale,
+    compact,
+    s,
+    pagePadding: compact ? 18 : 24,
+    cardPadding: s(20),
+    cardGap: s(16),
+    modalPadding: compact ? 14 : 20,
+    modalCardPadding: s(18),
+    chipPaddingHorizontal: s(16),
+    chipPaddingVertical: s(10),
+    chipGap: s(8),
+    chipText: s(14),
+    pageTitle: s(28),
+    sectionTitle: s(17),
+    body: s(14),
+    caption: s(12),
+    profileTitle: s(16),
+    resultValue: s(38),
+    resultImage: s(104),
+    resultCopyPadding: s(74),
+  };
 }
 
 function formatTimeInput(value: string): string {
@@ -253,7 +286,9 @@ function Chip({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
-  const chipStyles = React.useMemo(() => createChipStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const layout = React.useMemo(() => createSettingsLayout(width), [width]);
+  const chipStyles = React.useMemo(() => createChipStyles(colors, layout), [colors, layout]);
 
   return (
     <SoftPressable
@@ -285,7 +320,9 @@ function ActivityCard({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const layout = React.useMemo(() => createSettingsLayout(width), [width]);
+  const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
 
   return (
     <SoftPressable
@@ -332,7 +369,9 @@ function SmallOptionCard({
   onPress: () => void;
 }) {
   const colors = useThemeColors();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const layout = React.useMemo(() => createSettingsLayout(width), [width]);
+  const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
 
   return (
     <SoftPressable
@@ -365,24 +404,27 @@ function SmallOptionCard({
   );
 }
 
-function createChipStyles(colors: typeof Theme.colors) {
+function createChipStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   return StyleSheet.create({
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    minWidth: layout.compact ? 74 : 82,
+    alignItems: 'center',
+    paddingHorizontal: layout.chipPaddingHorizontal,
+    paddingVertical: layout.chipPaddingVertical,
     borderRadius: Theme.radius.full,
     backgroundColor: colors.background,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    marginRight: 8,
-    marginBottom: 8,
+    marginRight: layout.chipGap,
+    marginBottom: layout.chipGap,
   },
   chipSelected: {
     backgroundColor: colors.primarySoft,
     borderColor: colors.primaryBorder,
   },
   chipText: {
-    fontSize: 14,
+    fontSize: layout.chipText,
+    lineHeight: layout.s(19),
     fontFamily: Theme.fonts.medium,
     color: colors.textSecondary,
   },
@@ -395,7 +437,9 @@ function createChipStyles(colors: typeof Theme.colors) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const layout = React.useMemo(() => createSettingsLayout(width), [width]);
+  const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
   const { state, updateSettings } = useWater();
   const { settings } = state;
   const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
@@ -1410,28 +1454,28 @@ export default function SettingsScreen() {
   );
 }
 
-function createStyles(colors: typeof Theme.colors) {
+function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingHorizontal: layout.pagePadding,
+    paddingBottom: layout.s(20),
   },
   pageTitle: {
-    fontSize: Theme.type.pageTitle,
+    fontSize: layout.pageTitle,
     fontFamily: Theme.fonts.medium,
     color: colors.text,
-    marginBottom: 24,
+    marginBottom: layout.s(24),
     letterSpacing: 0.5,
   },
   card: {
     backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
-    padding: 20,
-    marginBottom: 16,
+    padding: layout.cardPadding,
+    marginBottom: layout.cardGap,
     // 极轻阴影
     elevation: Theme.shadow.card.elevation,
     shadowColor: Theme.shadow.card.color,
@@ -1440,7 +1484,7 @@ function createStyles(colors: typeof Theme.colors) {
     shadowRadius: Theme.shadow.card.radius,
   },
   cardTitle: {
-    fontSize: Theme.type.sectionTitle,
+    fontSize: layout.sectionTitle,
     fontFamily: Theme.fonts.medium,
     color: colors.text,
     marginBottom: 6,
@@ -1452,15 +1496,15 @@ function createStyles(colors: typeof Theme.colors) {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 6,
+    gap: layout.s(12),
+    marginBottom: layout.s(6),
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: layout.body,
     fontFamily: Theme.fonts.regular,
     color: colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: 16,
+    lineHeight: layout.s(20),
+    marginBottom: layout.s(16),
   },
   chipGroup: {
     flexDirection: 'row',
@@ -1562,8 +1606,8 @@ function createStyles(colors: typeof Theme.colors) {
   quietTimeLabel: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: layout.s(12),
+    lineHeight: layout.s(16),
   },
   quietTimeInput: {
     minHeight: 42,
@@ -1609,13 +1653,13 @@ function createStyles(colors: typeof Theme.colors) {
     borderRadius: Theme.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.primaryBorder,
-    paddingLeft: 11,
-    paddingRight: 8,
+    paddingLeft: layout.s(11),
+    paddingRight: layout.s(8),
   },
   estimatePillText: {
     color: colors.primary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 12,
+    fontSize: layout.caption,
   },
   estimateButton: {
     alignSelf: 'flex-start',
@@ -1624,8 +1668,8 @@ function createStyles(colors: typeof Theme.colors) {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     marginTop: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingHorizontal: layout.s(16),
+    paddingVertical: layout.s(11),
   },
   estimateButtonPressed: {
     opacity: 0.72,
@@ -1633,7 +1677,7 @@ function createStyles(colors: typeof Theme.colors) {
   estimateButtonText: {
     color: colors.primary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 14,
+    fontSize: layout.body,
   },
   customSection: {
     alignItems: 'flex-start',
@@ -1655,33 +1699,33 @@ function createStyles(colors: typeof Theme.colors) {
     gap: 8,
   },
   customInputShell: {
-    width: 90,
-    minHeight: 42,
+    width: layout.s(90),
+    minHeight: layout.s(42),
     backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.input,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: layout.s(12),
   },
   customInput: {
     flex: 1,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 14,
-    paddingVertical: 8,
+    fontSize: layout.body,
+    paddingVertical: layout.s(8),
   },
   inputUnit: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 14,
+    fontSize: layout.body,
   },
   saveButton: {
     backgroundColor: colors.primary,
     borderRadius: Theme.radius.button,
-    minHeight: 42,
-    paddingHorizontal: 16,
+    minHeight: layout.s(42),
+    paddingHorizontal: layout.s(16),
     justifyContent: 'center',
   },
   saveButtonPressed: {
@@ -1693,7 +1737,7 @@ function createStyles(colors: typeof Theme.colors) {
   saveButtonText: {
     color: colors.surface,
     fontFamily: Theme.fonts.medium,
-    fontSize: 14,
+    fontSize: layout.body,
   },
   saveButtonTextDisabled: {
     color: colors.textSecondary,
@@ -1800,8 +1844,8 @@ function createStyles(colors: typeof Theme.colors) {
   dataPathLabel: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: layout.s(12),
+    lineHeight: layout.s(16),
   },
   dataPathValue: {
     color: colors.text,
@@ -1894,7 +1938,7 @@ function createStyles(colors: typeof Theme.colors) {
   modalRoot: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.modalPadding,
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -1905,9 +1949,9 @@ function createStyles(colors: typeof Theme.colors) {
     backgroundColor: colors.surface,
     borderRadius: 22,
     overflow: 'hidden',
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 18,
+    paddingHorizontal: layout.modalCardPadding,
+    paddingTop: layout.modalCardPadding,
+    paddingBottom: layout.modalCardPadding,
     elevation: Theme.shadow.floating.elevation,
     shadowColor: Theme.shadow.floating.color,
     shadowOffset: { width: 0, height: Theme.shadow.floating.offsetY },
@@ -1917,8 +1961,8 @@ function createStyles(colors: typeof Theme.colors) {
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 12,
+    gap: layout.s(12),
+    marginBottom: layout.s(12),
   },
   modalHeaderCopy: {
     flex: 1,
@@ -1926,19 +1970,19 @@ function createStyles(colors: typeof Theme.colors) {
   modalTitle: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: layout.s(18),
+    lineHeight: layout.s(24),
   },
   modalDescription: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 4,
+    fontSize: layout.s(13),
+    lineHeight: layout.s(19),
+    marginTop: layout.s(4),
   },
   closeButton: {
-    width: 36,
-    height: 36,
+    width: layout.s(36),
+    height: layout.s(36),
     borderRadius: Theme.radius.full,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
@@ -1955,19 +1999,19 @@ function createStyles(colors: typeof Theme.colors) {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: 14,
-    gap: 16,
+    padding: layout.s(14),
+    gap: layout.s(16),
   },
   profileTitle: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 16,
-    lineHeight: 21,
+    fontSize: layout.profileTitle,
+    lineHeight: layout.s(21),
   },
   profileTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: layout.s(8),
   },
   weightRow: {
     flexDirection: 'row',
@@ -1977,10 +2021,10 @@ function createStyles(colors: typeof Theme.colors) {
     borderRadius: 15,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    gap: 16,
-    minHeight: 54,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: layout.s(16),
+    minHeight: layout.s(54),
+    paddingHorizontal: layout.s(12),
+    paddingVertical: layout.s(7),
   },
   weightLabelGroup: {
     flexDirection: 'row',
@@ -1995,8 +2039,8 @@ function createStyles(colors: typeof Theme.colors) {
     lineHeight: 19,
   },
   weightInputShell: {
-    width: 104,
-    minHeight: 40,
+    width: layout.s(104),
+    minHeight: layout.s(40),
     backgroundColor: colors.surface,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
@@ -2009,8 +2053,8 @@ function createStyles(colors: typeof Theme.colors) {
     flex: 1,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 15,
-    paddingVertical: 6,
+    fontSize: layout.s(15),
+    paddingVertical: layout.s(6),
   },
   weightUnit: {
     color: colors.textSecondary,
@@ -2027,12 +2071,12 @@ function createStyles(colors: typeof Theme.colors) {
   activityGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
+    gap: layout.s(8),
+    marginBottom: layout.s(4),
   },
   activityCard: {
-    width: '48.5%',
-    minHeight: 58,
+    width: '47.6%',
+    minHeight: layout.s(58),
     backgroundColor: colors.surfaceMuted,
     borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
@@ -2040,9 +2084,9 @@ function createStyles(colors: typeof Theme.colors) {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: layout.s(8),
+    paddingHorizontal: layout.s(10),
+    paddingVertical: layout.s(8),
   },
   activityCardSelected: {
     backgroundColor: colors.primarySoft,
@@ -2059,8 +2103,8 @@ function createStyles(colors: typeof Theme.colors) {
   activityTitle: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 13,
-    lineHeight: 17,
+    fontSize: layout.s(13),
+    lineHeight: layout.s(17),
     textAlign: 'center',
   },
   activityTitleSelected: {
@@ -2069,9 +2113,9 @@ function createStyles(colors: typeof Theme.colors) {
   activitySubtitle: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 3,
+    fontSize: layout.s(11),
+    lineHeight: layout.s(15),
+    marginTop: layout.s(3),
     textAlign: 'center',
   },
   activitySubtitleSelected: {
@@ -2079,20 +2123,20 @@ function createStyles(colors: typeof Theme.colors) {
   },
   dietGrid: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 2,
+    gap: layout.s(8),
+    marginBottom: layout.s(2),
   },
   smallOptionCard: {
     flex: 1,
     minWidth: 0,
-    minHeight: 60,
+    minHeight: layout.s(60),
     backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: layout.s(8),
+    paddingVertical: layout.s(8),
   },
   smallOptionCardSelected: {
     backgroundColor: colors.primarySoft,
@@ -2101,8 +2145,8 @@ function createStyles(colors: typeof Theme.colors) {
   smallOptionTitle: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: layout.s(12),
+    lineHeight: layout.s(16),
     textAlign: 'center',
   },
   smallOptionTitleSelected: {
@@ -2114,32 +2158,32 @@ function createStyles(colors: typeof Theme.colors) {
     fontSize: 11,
     lineHeight: 15,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: layout.s(4),
   },
   smallOptionSubtitleSelected: {
     color: colors.primary,
   },
   resultCard: {
-    minHeight: 118,
+    minHeight: layout.s(118),
     backgroundColor: colors.primarySoft,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: 14,
-    marginTop: 2,
-    marginBottom: 12,
+    padding: layout.s(14),
+    marginTop: layout.s(2),
+    marginBottom: layout.s(12),
     position: 'relative',
     overflow: 'hidden',
   },
   resultCopy: {
-    paddingRight: 82,
+    paddingRight: layout.resultCopyPadding,
     zIndex: 1,
   },
   resultTitle: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 16,
-    lineHeight: 21,
+    fontSize: layout.profileTitle,
+    lineHeight: layout.s(21),
   },
   resultDescription: {
     color: colors.textSecondary,
@@ -2151,27 +2195,27 @@ function createStyles(colors: typeof Theme.colors) {
   resultValueRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginTop: 10,
+    marginTop: layout.s(10),
   },
   resultValue: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
-    fontSize: 38,
-    lineHeight: 44,
+    fontSize: layout.resultValue,
+    lineHeight: layout.s(44),
   },
   resultUnit: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
-    fontSize: 15,
-    lineHeight: 24,
-    marginLeft: 6,
-    marginBottom: 4,
+    fontSize: layout.s(15),
+    lineHeight: layout.s(24),
+    marginLeft: layout.s(6),
+    marginBottom: layout.s(4),
   },
   cupEstimateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 10,
+    marginTop: layout.s(10),
   },
   cupEstimateText: {
     color: colors.textSecondary,
@@ -2181,36 +2225,36 @@ function createStyles(colors: typeof Theme.colors) {
   },
   resultIllustration: {
     position: 'absolute',
-    top: 20,
-    right: 12,
-    width: 102,
-    height: 102,
+    top: layout.s(20),
+    right: layout.s(12),
+    width: layout.resultImage,
+    height: layout.resultImage,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultVisualSlot: {
-    width: 102,
-    height: 102,
+    width: layout.resultImage,
+    height: layout.resultImage,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultImage: {
-    width: 108,
-    height: 112,
+    width: layout.s(108),
+    height: layout.s(112),
   },
   modalPrimaryButton: {
-    minHeight: 48,
+    minHeight: layout.s(48),
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.primary,
     borderRadius: Theme.radius.full,
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.s(18),
   },
   modalPrimaryText: {
     color: colors.surface,
     fontFamily: Theme.fonts.medium,
-    fontSize: 15,
+    fontSize: layout.s(15),
   },
   });
 }
