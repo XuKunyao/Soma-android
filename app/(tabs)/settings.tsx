@@ -65,6 +65,9 @@ const DEFAULT_CUSTOM_INTERVAL_OPTION = {
   kind: 'defaultCustom' as const,
 };
 
+const TIME_HOURS = Array.from({ length: 24 }, (_, index) => index);
+const TIME_MINUTES = Array.from({ length: 60 }, (_, index) => index);
+
 const LANGUAGE_OPTIONS = [
   { label: '中文', value: 'zh' as const },
   { label: 'English', value: 'en' as const },
@@ -94,6 +97,8 @@ type SexProfile = 'unspecified' | 'female' | 'male';
 type DietProfile = 'hydrating' | 'balanced' | 'salty';
 type PressableStyle = React.ComponentProps<typeof Pressable>['style'];
 type SettingsLayout = ReturnType<typeof createSettingsLayout>;
+type IntervalUnit = 'min' | 'hour';
+type TimePickerTarget = 'quietStart' | 'quietEnd' | 'reminderTime';
 
 type SoftPressableProps = Omit<React.ComponentProps<typeof Pressable>, 'style'> & {
   scaleTo?: number;
@@ -177,16 +182,6 @@ function createSettingsLayout(width: number) {
   };
 }
 
-function formatTimeInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 4);
-
-  if (digits.length <= 2) {
-    return digits;
-  }
-
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-}
-
 function isValidTimeInput(value: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
@@ -208,6 +203,27 @@ function formatIntervalLabel(minutes: number, language: 'zh' | 'en'): string {
 
 function normalizeReminderTimes(times: string[]): string[] {
   return [...new Set(times.filter(isValidTimeInput))].sort();
+}
+
+function toTimeValue(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function splitTimeValue(value: string): { hour: number; minute: number } {
+  if (!isValidTimeInput(value)) {
+    return { hour: 9, minute: 0 };
+  }
+
+  const [hour, minute] = value.split(':').map(Number);
+  return { hour, minute };
+}
+
+function deriveIntervalInput(minutes: number): { value: string; unit: IntervalUnit } {
+  if (minutes > 0 && minutes % 60 === 0) {
+    return { value: String(minutes / 60), unit: 'hour' };
+  }
+
+  return { value: minutes > 0 ? String(minutes) : '', unit: 'min' };
 }
 
 const ACTIVITY_LEVELS: {
@@ -472,10 +488,16 @@ export default function SettingsScreen() {
   const [quietStartInput, setQuietStartInput] = React.useState(settings.reminderQuietStart);
   const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
   const [customReminderIntervalInput, setCustomReminderIntervalInput] = React.useState(
-    settings.reminderCustomInterval > 0 ? String(settings.reminderCustomInterval) : '',
+    deriveIntervalInput(settings.reminderInterval).value,
+  );
+  const [customReminderIntervalUnit, setCustomReminderIntervalUnit] = React.useState<IntervalUnit>(
+    deriveIntervalInput(settings.reminderInterval).unit,
   );
   const [reminderTimeInput, setReminderTimeInput] = React.useState('');
   const [reminderTimesInput, setReminderTimesInput] = React.useState<string[]>(settings.reminderTimes);
+  const [timePickerTarget, setTimePickerTarget] = React.useState<TimePickerTarget | null>(null);
+  const [timePickerHour, setTimePickerHour] = React.useState(9);
+  const [timePickerMinute, setTimePickerMinute] = React.useState(0);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
   const [isQuietModalVisible, setIsQuietModalVisible] = React.useState(false);
@@ -515,9 +537,10 @@ export default function SettingsScreen() {
       quietDescription: 'No hydration reminders during this time.',
       reminderDetailTitle: 'Reminder settings',
       reminderDetailDescription: 'Exact times come first; otherwise Soma follows the interval.',
+      reminderEntryDescription: 'Choose exact times, interval, and quiet hours.',
       customIntervalTitle: 'Custom interval',
-      customIntervalDescription: 'Leave empty to use the preset interval.',
-      customIntervalPlaceholder: 'Minutes',
+      customIntervalDescription: 'Defaults to the selected preset interval.',
+      customIntervalPlaceholder: 'Interval',
       exactTimeTitle: 'Exact reminder times',
       exactTimeDescription: 'Daily times for hydration reminders.',
       exactTimeEmpty: 'No exact times yet.',
@@ -529,6 +552,10 @@ export default function SettingsScreen() {
       quietSave: 'Save',
       quietInvalid: 'Use 24-hour time, e.g. 22:00.',
       quietSummary: 'Paused from {start} to {end}',
+      selectTime: 'Select time',
+      confirmTime: 'Done',
+      minuteUnit: 'min',
+      hourUnit: 'hour',
       systemTitle: 'System settings',
       systemDescription: 'Language, appearance, backups, and app information.',
       systemEntryDescription: 'Language, appearance, backup, etc.',
@@ -584,10 +611,11 @@ export default function SettingsScreen() {
       quietTitle: '勿扰时间段',
       quietDescription: '这个时间段不会收到喝水提醒。',
       reminderDetailTitle: '提醒设置',
-      reminderDetailDescription: '具体时间优先；未设置时按间隔提醒。',
+      reminderDetailDescription: '具体时间优先，未设置时按间隔提醒。',
+      reminderEntryDescription: '设置具体时间、间隔和勿扰时段。',
       customIntervalTitle: '自定义间隔',
-      customIntervalDescription: '不填则使用上方预设。',
-      customIntervalPlaceholder: '分钟',
+      customIntervalDescription: '默认显示当前选择的预设间隔。',
+      customIntervalPlaceholder: '间隔',
       exactTimeTitle: '具体提醒时间',
       exactTimeDescription: '每天在这些时间提醒喝水。',
       exactTimeEmpty: '还没有设置具体时间。',
@@ -599,6 +627,10 @@ export default function SettingsScreen() {
       quietSave: '保存',
       quietInvalid: '请使用 24 小时制，例如 22:00。',
       quietSummary: '{start} 到 {end} 暂停提醒',
+      selectTime: '选择时间',
+      confirmTime: '完成',
+      minuteUnit: '分钟',
+      hourUnit: '小时',
       systemTitle: '系统设置',
       systemDescription: '设置语言、外观、数据备份和应用信息。',
       systemEntryDescription: '语言、外观、备份等',
@@ -642,12 +674,15 @@ export default function SettingsScreen() {
     };
 
   React.useEffect(() => {
+    const intervalInput = deriveIntervalInput(settings.reminderInterval);
     setQuietStartInput(settings.reminderQuietStart);
     setQuietEndInput(settings.reminderQuietEnd);
-    setCustomReminderIntervalInput(settings.reminderCustomInterval > 0 ? String(settings.reminderCustomInterval) : '');
+    setCustomReminderIntervalInput(intervalInput.value);
+    setCustomReminderIntervalUnit(intervalInput.unit);
     setReminderTimesInput(settings.reminderTimes);
   }, [
     settings.reminderCustomInterval,
+    settings.reminderInterval,
     settings.reminderQuietEnd,
     settings.reminderQuietStart,
     settings.reminderTimes,
@@ -688,18 +723,14 @@ export default function SettingsScreen() {
     .replace('{end}', quietEndInput || '--:--');
   const parsedCustomReminderInterval = Number.parseInt(customReminderIntervalInput, 10);
   const hasCustomReminderIntervalInput = customReminderIntervalInput.trim().length > 0;
+  const parsedCustomReminderIntervalMinutes = customReminderIntervalUnit === 'hour'
+    ? parsedCustomReminderInterval * 60
+    : parsedCustomReminderInterval;
   const isCustomReminderIntervalValid = !hasCustomReminderIntervalInput
-    || (Number.isFinite(parsedCustomReminderInterval)
-      && parsedCustomReminderInterval >= 5
-      && parsedCustomReminderInterval <= 720);
+    || (Number.isFinite(parsedCustomReminderIntervalMinutes)
+      && parsedCustomReminderIntervalMinutes >= 5
+      && parsedCustomReminderIntervalMinutes <= 720);
   const activeReminderTimes = normalizeReminderTimes(reminderTimesInput);
-  const reminderModeSummary = activeReminderTimes.length > 0
-    ? (isEnglish
-      ? `${activeReminderTimes.length} exact ${activeReminderTimes.length === 1 ? 'time' : 'times'}`
-      : `已设置 ${activeReminderTimes.length} 个具体时间`)
-    : (isEnglish
-      ? `Every ${formatIntervalLabel(settings.reminderInterval, language)}`
-      : `每 ${formatIntervalLabel(settings.reminderInterval, language)}提醒`);
   const customIntervalOption = settings.reminderCustomInterval > 0
     ? {
       label: isEnglish
@@ -851,12 +882,51 @@ export default function SettingsScreen() {
     setReminderTimesInput(reminderTimesInput.filter((item) => item !== time));
   };
 
+  const openTimePicker = (target: TimePickerTarget, currentValue: string) => {
+    const { hour, minute } = splitTimeValue(currentValue);
+    setTimePickerTarget(target);
+    setTimePickerHour(hour);
+    setTimePickerMinute(minute);
+  };
+
+  const confirmTimePicker = () => {
+    if (!timePickerTarget) {
+      return;
+    }
+
+    const nextTime = toTimeValue(timePickerHour, timePickerMinute);
+    if (timePickerTarget === 'quietStart') {
+      setQuietStartInput(nextTime);
+    } else if (timePickerTarget === 'quietEnd') {
+      setQuietEndInput(nextTime);
+    } else {
+      setReminderTimeInput(nextTime);
+    }
+
+    setTimePickerTarget(null);
+  };
+
+  const toggleCustomReminderIntervalUnit = () => {
+    if (!hasCustomReminderIntervalInput || !Number.isFinite(parsedCustomReminderInterval)) {
+      setCustomReminderIntervalUnit(customReminderIntervalUnit === 'min' ? 'hour' : 'min');
+      return;
+    }
+
+    if (customReminderIntervalUnit === 'min') {
+      setCustomReminderIntervalInput(String(Math.max(1, Math.round(parsedCustomReminderInterval / 60))));
+      setCustomReminderIntervalUnit('hour');
+    } else {
+      setCustomReminderIntervalInput(String(Math.min(720, parsedCustomReminderInterval * 60)));
+      setCustomReminderIntervalUnit('min');
+    }
+  };
+
   const saveReminderSettings = () => {
     if (!isQuietWindowValid || !isCustomReminderIntervalValid) {
       return;
     }
 
-    const nextCustomInterval = hasCustomReminderIntervalInput ? parsedCustomReminderInterval : 0;
+    const nextCustomInterval = hasCustomReminderIntervalInput ? parsedCustomReminderIntervalMinutes : 0;
     updateSettings({
       reminderEnabled: true,
       reminderInterval: nextCustomInterval > 0 ? nextCustomInterval : settings.reminderInterval,
@@ -993,9 +1063,11 @@ export default function SettingsScreen() {
         </View>
         <SoftPressable
           onPress={() => {
+            const intervalInput = deriveIntervalInput(settings.reminderInterval);
             setQuietStartInput(settings.reminderQuietStart);
             setQuietEndInput(settings.reminderQuietEnd);
-            setCustomReminderIntervalInput(settings.reminderCustomInterval > 0 ? String(settings.reminderCustomInterval) : '');
+            setCustomReminderIntervalInput(intervalInput.value);
+            setCustomReminderIntervalUnit(intervalInput.unit);
             setReminderTimesInput(settings.reminderTimes);
             setReminderTimeInput('');
             setIsQuietModalVisible(true);
@@ -1011,11 +1083,20 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.quietEntryCopy}>
               <Text style={styles.quietEntryTitle}>{copy.reminderDetailTitle}</Text>
-              <Text style={styles.quietEntrySummary}>{reminderModeSummary}</Text>
+              <Text style={styles.quietEntrySummary}>{copy.reminderEntryDescription}</Text>
             </View>
           </View>
           <Feather name="chevron-right" size={18} color={colors.textSecondary} />
         </SoftPressable>
+        {activeReminderTimes.length > 0 ? (
+          <View style={styles.reminderSummaryList}>
+            {activeReminderTimes.map((time) => (
+              <View key={time} style={styles.reminderSummaryItem}>
+                <Text style={styles.reminderSummaryTime}>{time}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
       {/* 系统设置 */}
       <SoftPressable
@@ -1291,14 +1372,26 @@ export default function SettingsScreen() {
                 <View style={styles.reminderInputShell}>
                   <TextInput
                     value={customReminderIntervalInput}
-                    onChangeText={(value) => setCustomReminderIntervalInput(value.replace(/\D/g, '').slice(0, 3))}
+                    onChangeText={(value) => setCustomReminderIntervalInput(
+                      value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
+                    )}
                     keyboardType="number-pad"
-                    maxLength={3}
+                    maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
                     placeholder={copy.customIntervalPlaceholder}
                     placeholderTextColor={colors.textSecondary}
                     style={styles.customInput}
                   />
-                  <Text style={styles.inputUnit}>min</Text>
+                  <SoftPressable
+                    onPress={toggleCustomReminderIntervalUnit}
+                    style={({ pressed }) => [
+                      styles.intervalUnitButton,
+                      pressed && styles.estimateButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.intervalUnitText}>
+                      {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
+                    </Text>
+                  </SoftPressable>
                 </View>
               </View>
               {!isCustomReminderIntervalValid ? (
@@ -1332,17 +1425,16 @@ export default function SettingsScreen() {
                 )}
               </View>
               <View style={styles.reminderControl}>
-                <View style={styles.reminderInputShell}>
-                  <TextInput
-                    value={reminderTimeInput}
-                    onChangeText={(value) => setReminderTimeInput(formatTimeInput(value))}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="09:00"
-                    placeholderTextColor={colors.textSecondary}
-                    style={styles.customInput}
-                  />
-                </View>
+                <SoftPressable
+                  onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
+                  style={({ pressed }) => [
+                    styles.timeSelectButton,
+                    pressed && styles.estimateButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.timeSelectText}>{reminderTimeInput || '09:00'}</Text>
+                  <Feather name="chevron-down" size={15} color={colors.textSecondary} />
+                </SoftPressable>
                 <SoftPressable
                   onPress={addReminderTime}
                   disabled={!isValidTimeInput(reminderTimeInput)}
@@ -1375,33 +1467,31 @@ export default function SettingsScreen() {
               <View style={styles.quietTimeRow}>
                 <View style={styles.quietTimeField}>
                   <Text style={styles.quietTimeLabel}>{copy.quietStart}</Text>
-                  <TextInput
-                    value={quietStartInput}
-                    onChangeText={(value) => setQuietStartInput(formatTimeInput(value))}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="22:00"
-                    placeholderTextColor={colors.textSecondary}
-                    style={[
+                  <SoftPressable
+                    onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
+                    style={({ pressed }) => [
                       styles.quietTimeInput,
                       !isQuietStartValid && styles.quietTimeInputInvalid,
+                      pressed && styles.estimateButtonPressed,
                     ]}
-                  />
+                  >
+                    <Text style={styles.quietTimeInputText}>{quietStartInput || '22:00'}</Text>
+                    <Feather name="chevron-down" size={14} color={colors.textSecondary} />
+                  </SoftPressable>
                 </View>
                 <View style={styles.quietTimeField}>
                   <Text style={styles.quietTimeLabel}>{copy.quietEnd}</Text>
-                  <TextInput
-                    value={quietEndInput}
-                    onChangeText={(value) => setQuietEndInput(formatTimeInput(value))}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="08:00"
-                    placeholderTextColor={colors.textSecondary}
-                    style={[
+                  <SoftPressable
+                    onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
+                    style={({ pressed }) => [
                       styles.quietTimeInput,
                       !isQuietEndValid && styles.quietTimeInputInvalid,
+                      pressed && styles.estimateButtonPressed,
                     ]}
-                  />
+                  >
+                    <Text style={styles.quietTimeInputText}>{quietEndInput || '08:00'}</Text>
+                    <Feather name="chevron-down" size={14} color={colors.textSecondary} />
+                  </SoftPressable>
                 </View>
               </View>
               {!isQuietWindowValid ? (
@@ -1429,6 +1519,93 @@ export default function SettingsScreen() {
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={timePickerTarget !== null}
+        transparent
+        animationType="fade"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setTimePickerTarget(null)}
+      >
+        <View style={styles.timePickerRoot}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setTimePickerTarget(null)}
+          />
+          <View style={styles.timePickerCard}>
+            <View style={styles.timePickerHeader}>
+              <Text style={styles.timePickerTitle}>{copy.selectTime}</Text>
+              <Text style={styles.timePickerValue}>{toTimeValue(timePickerHour, timePickerMinute)}</Text>
+            </View>
+            <View style={styles.timePickerColumns}>
+              <ScrollView
+                style={styles.timePickerColumn}
+                contentContainerStyle={styles.timePickerColumnContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {TIME_HOURS.map((hour) => {
+                  const selected = hour === timePickerHour;
+                  return (
+                    <SoftPressable
+                      key={hour}
+                      onPress={() => setTimePickerHour(hour)}
+                      style={({ pressed }) => [
+                        styles.timePickerOption,
+                        selected && styles.timePickerOptionSelected,
+                        pressed && styles.estimateButtonPressed,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.timePickerOptionText,
+                        selected && styles.timePickerOptionTextSelected,
+                      ]}>
+                        {String(hour).padStart(2, '0')}
+                      </Text>
+                    </SoftPressable>
+                  );
+                })}
+              </ScrollView>
+              <Text style={styles.timePickerDivider}>:</Text>
+              <ScrollView
+                style={styles.timePickerColumn}
+                contentContainerStyle={styles.timePickerColumnContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {TIME_MINUTES.map((minute) => {
+                  const selected = minute === timePickerMinute;
+                  return (
+                    <SoftPressable
+                      key={minute}
+                      onPress={() => setTimePickerMinute(minute)}
+                      style={({ pressed }) => [
+                        styles.timePickerOption,
+                        selected && styles.timePickerOptionSelected,
+                        pressed && styles.estimateButtonPressed,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.timePickerOptionText,
+                        selected && styles.timePickerOptionTextSelected,
+                      ]}>
+                        {String(minute).padStart(2, '0')}
+                      </Text>
+                    </SoftPressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+            <SoftPressable
+              onPress={confirmTimePicker}
+              style={({ pressed }) => [
+                styles.modalPrimaryButton,
+                pressed && styles.saveButtonPressed,
+              ]}
+            >
+              <Text style={styles.modalPrimaryText}>{copy.confirmTime}</Text>
+            </SoftPressable>
+          </View>
+        </View>
       </Modal>
       <Modal
         visible={isSystemModalVisible}
@@ -1753,6 +1930,24 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontSize: 12,
     lineHeight: 17,
   },
+  reminderSummaryList: {
+    marginTop: layout.s(10),
+    gap: layout.s(8),
+  },
+  reminderSummaryItem: {
+    minHeight: layout.s(38),
+    borderRadius: Theme.radius.input,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    paddingHorizontal: layout.s(12),
+  },
+  reminderSummaryTime: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(14),
+  },
   quietSection: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 16,
@@ -1832,11 +2027,17 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  quietTimeInputText: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   quietTimeInputInvalid: {
     borderColor: colors.primary,
@@ -1954,6 +2155,38 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingVertical: layout.s(8),
   },
   inputUnit: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.body,
+  },
+  intervalUnitButton: {
+    minHeight: layout.s(30),
+    minWidth: layout.s(52),
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: layout.s(10),
+  },
+  intervalUnitText: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(12),
+  },
+  timeSelectButton: {
+    minWidth: layout.s(118),
+    minHeight: layout.s(42),
+    backgroundColor: colors.surface,
+    borderRadius: Theme.radius.input,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: layout.s(12),
+  },
+  timeSelectText: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: layout.body,
@@ -2231,6 +2464,78 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   closeButtonPressed: {
     backgroundColor: colors.border,
+  },
+  timePickerRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: layout.modalPadding,
+    backgroundColor: colors.backdrop,
+  },
+  timePickerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    padding: layout.modalCardPadding,
+    gap: layout.s(14),
+    elevation: Theme.shadow.floating.elevation,
+    shadowColor: Theme.shadow.floating.color,
+    shadowOffset: { width: 0, height: Theme.shadow.floating.offsetY },
+    shadowOpacity: Theme.shadow.floating.opacity,
+    shadowRadius: Theme.shadow.floating.radius,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: layout.s(12),
+  },
+  timePickerTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(16),
+  },
+  timePickerValue: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(18),
+  },
+  timePickerColumns: {
+    height: layout.s(220),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: layout.s(10),
+  },
+  timePickerColumn: {
+    flex: 1,
+    alignSelf: 'stretch',
+  },
+  timePickerColumnContent: {
+    gap: layout.s(7),
+    paddingVertical: layout.s(4),
+  },
+  timePickerDivider: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(20),
+  },
+  timePickerOption: {
+    minHeight: layout.s(38),
+    borderRadius: Theme.radius.input,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+  },
+  timePickerOptionSelected: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+  },
+  timePickerOptionText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(14),
+  },
+  timePickerOptionTextSelected: {
+    color: colors.primary,
   },
   modalScrollContent: {
     paddingBottom: 2,
