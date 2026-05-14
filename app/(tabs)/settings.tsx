@@ -680,9 +680,11 @@ export default function SettingsScreen() {
   const { state, updateSettings } = useWater();
   const { settings } = state;
   const [customCupSize, setCustomCupSize] = React.useState('');
+  const [appliedCustomCupSize, setAppliedCustomCupSize] = React.useState<number | null>(null);
   const [quietStartInput, setQuietStartInput] = React.useState(settings.reminderQuietStart);
   const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
   const [customReminderIntervalInput, setCustomReminderIntervalInput] = React.useState('');
+  const [appliedCustomInterval, setAppliedCustomInterval] = React.useState<number | null>(null);
   const [customReminderIntervalUnit, setCustomReminderIntervalUnit] = React.useState<IntervalUnit>(
     deriveIntervalInput(settings.reminderInterval).unit,
   );
@@ -1052,6 +1054,7 @@ export default function SettingsScreen() {
   const saveCustomCupSize = () => {
     if (isCustomCupSizeValid) {
       updateSettings({ cupSize: parsedCustomCupSize });
+      setAppliedCustomCupSize(parsedCustomCupSize);
       setCustomCupSize('');
       Keyboard.dismiss();
     }
@@ -1128,6 +1131,7 @@ export default function SettingsScreen() {
       reminderInterval: parsedCustomReminderIntervalMinutes,
       reminderCustomInterval: parsedCustomReminderIntervalMinutes,
     });
+    setAppliedCustomInterval(parsedCustomReminderIntervalMinutes);
     setCustomReminderIntervalInput('');
     Keyboard.dismiss();
   };
@@ -1209,7 +1213,7 @@ export default function SettingsScreen() {
                 value={customCupSize}
                 onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
-                placeholder="250"
+                placeholder={appliedCustomCupSize ? String(appliedCustomCupSize) : "250"}
                 placeholderTextColor={colors.textSecondary + '80'}
                 style={styles.customInput}
               />
@@ -1282,7 +1286,7 @@ export default function SettingsScreen() {
                 )}
                 keyboardType="number-pad"
                 maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
-                placeholder="30"
+                placeholder={appliedCustomInterval ? String(customReminderIntervalUnit === 'hour' ? appliedCustomInterval / 60 : appliedCustomInterval) : "30"}
                 placeholderTextColor={colors.textSecondary + '80'}
                 style={styles.customInput}
               />
@@ -2200,7 +2204,6 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    paddingVertical: layout.s(12),
     gap: layout.s(12),
   },
   quietInlineLeft: {
