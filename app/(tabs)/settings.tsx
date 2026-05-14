@@ -678,14 +678,10 @@ export default function SettingsScreen() {
   const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
   const { state, updateSettings } = useWater();
   const { settings } = state;
-  const [customCupSize, setCustomCupSize] = React.useState(String(settings.cupSize));
+  const [customCupSize, setCustomCupSize] = React.useState('');
   const [quietStartInput, setQuietStartInput] = React.useState(settings.reminderQuietStart);
   const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
-  const [customReminderIntervalInput, setCustomReminderIntervalInput] = React.useState(
-    (BASE_INTERVALS.some(i => i.value === settings.reminderInterval) || !settings.reminderEnabled)
-      ? ''
-      : String(deriveIntervalInput(settings.reminderInterval).value)
-  );
+  const [customReminderIntervalInput, setCustomReminderIntervalInput] = React.useState('');
   const [customReminderIntervalUnit, setCustomReminderIntervalUnit] = React.useState<IntervalUnit>(
     deriveIntervalInput(settings.reminderInterval).unit,
   );
@@ -870,15 +866,10 @@ export default function SettingsScreen() {
     };
 
   React.useEffect(() => {
-    const intervalInput = deriveIntervalInput(settings.reminderInterval);
     setQuietStartInput(settings.reminderQuietStart);
     setQuietEndInput(settings.reminderQuietEnd);
-    setCustomReminderIntervalInput(intervalInput.value);
-    setCustomReminderIntervalUnit(intervalInput.unit);
     setReminderTimesInput(settings.reminderTimes);
   }, [
-    settings.reminderCustomInterval,
-    settings.reminderInterval,
     settings.reminderQuietEnd,
     settings.reminderQuietStart,
     settings.reminderTimes,
@@ -1060,6 +1051,8 @@ export default function SettingsScreen() {
   const saveCustomCupSize = () => {
     if (isCustomCupSizeValid) {
       updateSettings({ cupSize: parsedCustomCupSize });
+      setCustomCupSize('');
+      Keyboard.dismiss();
     }
   };
 
@@ -1134,6 +1127,8 @@ export default function SettingsScreen() {
       reminderInterval: parsedCustomReminderIntervalMinutes,
       reminderCustomInterval: parsedCustomReminderIntervalMinutes,
     });
+    setCustomReminderIntervalInput('');
+    Keyboard.dismiss();
   };
 
   const quietHoursEnabled = !!(settings.reminderQuietStart && settings.reminderQuietEnd);
@@ -1213,7 +1208,7 @@ export default function SettingsScreen() {
                 value={customCupSize}
                 onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
-                placeholder="250"
+                placeholder={String(settings.cupSize)}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.customInput}
               />
@@ -1286,7 +1281,7 @@ export default function SettingsScreen() {
                 )}
                 keyboardType="number-pad"
                 maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
-                placeholder={copy.customIntervalPlaceholder}
+                placeholder={settings.reminderCustomInterval > 0 ? String(customReminderIntervalUnit === 'hour' ? settings.reminderCustomInterval / 60 : settings.reminderCustomInterval) : copy.customIntervalPlaceholder}
                 placeholderTextColor={colors.textSecondary}
                 style={styles.customInput}
               />
@@ -2207,12 +2202,13 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   quietInlineLeft: {
     flex: 1,
     flexDirection: 'row' as const,
-    alignItems: 'stretch' as const,
+    alignItems: 'center' as const,
     gap: layout.s(10),
   },
   quietInlineIcon: {
-    width: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
