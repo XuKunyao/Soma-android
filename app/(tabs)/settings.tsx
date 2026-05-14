@@ -25,6 +25,7 @@ import {
   Platform,
   useWindowDimensions,
   Alert,
+  Switch,
 } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -1017,12 +1018,14 @@ export default function SettingsScreen() {
       return;
     }
 
-    setReminderTimesInput(normalizeReminderTimes([...reminderTimesInput, reminderTimeInput]));
+    const nextTimes = normalizeReminderTimes([...settings.reminderTimes, reminderTimeInput]);
+    updateSettings({ reminderTimes: nextTimes });
     setReminderTimeInput('');
   };
 
   const removeReminderTime = (time: string) => {
-    setReminderTimesInput(reminderTimesInput.filter((item) => item !== time));
+    const nextTimes = settings.reminderTimes.filter((item) => item !== time);
+    updateSettings({ reminderTimes: nextTimes });
   };
 
   const openTimePicker = (target: TimePickerTarget, currentValue: string) => {
@@ -1040,10 +1043,13 @@ export default function SettingsScreen() {
     const nextTime = toTimeValue(timePickerHour, timePickerMinute);
     if (timePickerTarget === 'quietStart') {
       setQuietStartInput(nextTime);
+      updateSettings({ reminderQuietStart: nextTime });
     } else if (timePickerTarget === 'quietEnd') {
       setQuietEndInput(nextTime);
+      updateSettings({ reminderQuietEnd: nextTime });
     } else {
-      setReminderTimeInput(nextTime);
+      const nextTimes = normalizeReminderTimes([...settings.reminderTimes, nextTime]);
+      updateSettings({ reminderTimes: nextTimes });
     }
 
     setTimePickerTarget(null);
@@ -1064,21 +1070,28 @@ export default function SettingsScreen() {
     }
   };
 
-  const saveReminderSettings = () => {
-    if (!isQuietWindowValid || !isCustomReminderIntervalValid) {
+  const applyCustomInterval = () => {
+    if (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) {
       return;
     }
-
-    const nextCustomInterval = hasCustomReminderIntervalInput ? parsedCustomReminderIntervalMinutes : 0;
     updateSettings({
       reminderEnabled: true,
-      reminderInterval: nextCustomInterval > 0 ? nextCustomInterval : settings.reminderInterval,
-      reminderCustomInterval: nextCustomInterval,
-      reminderTimes: activeReminderTimes,
-      reminderQuietStart: quietStartInput,
-      reminderQuietEnd: quietEndInput,
+      reminderInterval: parsedCustomReminderIntervalMinutes,
+      reminderCustomInterval: parsedCustomReminderIntervalMinutes,
     });
-    setIsQuietModalVisible(false);
+  };
+
+  const quietHoursEnabled = !!(settings.reminderQuietStart && settings.reminderQuietEnd);
+  const toggleQuietHours = (enabled: boolean) => {
+    if (enabled) {
+      const start = quietStartInput || '22:00';
+      const end = quietEndInput || '08:00';
+      setQuietStartInput(start);
+      setQuietEndInput(end);
+      updateSettings({ reminderQuietStart: start, reminderQuietEnd: end });
+    } else {
+      updateSettings({ reminderQuietStart: '', reminderQuietEnd: '' });
+    }
   };
   return (
     <ScrollView
@@ -1196,7 +1209,6 @@ export default function SettingsScreen() {
                     updateSettings({
                       reminderEnabled: true,
                       reminderInterval: interval.value,
-                      reminderTimes: [],
                     });
                   }
                 }}
@@ -1204,55 +1216,132 @@ export default function SettingsScreen() {
             );
           })}
         </View>
-        {activeReminderTimes.length > 0 ? (
-          <View style={styles.reminderSummaryBlock}>
-            <Text style={styles.reminderSummaryLabel}>{copy.exactTimeTitle}</Text>
-            <View style={styles.reminderSummaryPills}>
-              {activeReminderTimes.map((time) => (
-                <View key={time} style={styles.reminderSummaryPill}>
-                  <Text style={styles.reminderSummaryPillText}>{time}</Text>
-                </View>
-              ))}
-            </View>
+        {/* 自定义间隔 */}
+        <View style={styles.customSection}>
+          <View style={styles.customCopy}>
+            <Text style={styles.customTitle}>{copy.customIntervalTitle}</Text>
           </View>
-        ) : null}
-        {settings.reminderQuietStart && settings.reminderQuietEnd ? (
-          <View style={styles.reminderSummaryBlock}>
-            <Text style={styles.reminderSummaryLabel}>{copy.quietTitle}</Text>
-            <View style={styles.reminderSummaryPills}>
-              <View style={styles.reminderQuietPill}>
-                <Text style={styles.reminderQuietPillText}>{settings.reminderQuietStart} - {settings.reminderQuietEnd}</Text>
+          <View style={styles.customControl}>
+            <View style={styles.customInputShell}>
+              <TextInput
+                value={customReminderIntervalInput}
+                onChangeText={(value) => setCustomReminderIntervalInput(
+                  value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
+                )}
+                keyboardType="number-pad"
+                maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
+                placeholder={copy.customIntervalPlaceholder}
+                placeholderTextColor={colors.textSecondary}
+                style={styles.customInput}
+              />
+              <SoftPressable
+                onPress={toggleCustomReminderIntervalUnit}
+                style={({ pressed }) => [
+                  styles.intervalUnitButton,
+                  pressed && styles.estimateButtonPressed,
+                ]}
+              >
+                <Text style={styles.intervalUnitText}>
+                  {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
+                </Text>
+              </SoftPressable>
+            </View>
+            <SoftPressable
+              onPress={applyCustomInterval}
+              disabled={!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput}
+              style={({ pressed }) => [
+                styles.saveButton,
+                pressed && isCustomReminderIntervalValid && hasCustomReminderIntervalInput && styles.saveButtonPressed,
+                (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonDisabled,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.saveButtonText,
+                  (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonTextDisabled,
+                ]}
+              >
+                {copy.apply}
+              </Text>
+            </SoftPressable>
+          </View>
+          {!isCustomReminderIntervalValid ? (
+            <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
+          ) : null}
+        </View>
+
+        {/* 具体提醒时间 */}
+        <Text style={styles.inlineSectionTitle}>{copy.exactTimeTitle}</Text>
+        <View style={styles.inlineTimePills}>
+          {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
+            <SoftPressable
+              key={time}
+              onPress={() => removeReminderTime(time)}
+              style={({ pressed }) => [
+                styles.reminderSummaryPill,
+                pressed && styles.estimateButtonPressed,
+              ]}
+            >
+              <Text style={styles.reminderSummaryPillText}>{time}  ×</Text>
+            </SoftPressable>
+          )) : null}
+          <SoftPressable
+            onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
+            style={({ pressed }) => [
+              styles.addTimePill,
+              pressed && styles.estimateButtonPressed,
+            ]}
+          >
+            <Feather name="plus" size={14} color={colors.textSecondary} />
+            <Text style={styles.addTimePillText}>{copy.addTime}</Text>
+          </SoftPressable>
+        </View>
+
+        {/* 勿扰时间段 */}
+        <Text style={styles.inlineSectionTitle}>{copy.quietTitle}</Text>
+        <View style={styles.quietInlineRow}>
+          <View style={styles.quietInlineLeft}>
+            <View style={styles.quietInlineIcon}>
+              <Feather name="moon" size={15} color={colors.textSecondary} />
+            </View>
+            <View style={styles.quietInlineCopy}>
+              <View style={styles.quietInlineTimeRow}>
+                {quietHoursEnabled ? (
+                  <>
+                    <SoftPressable
+                      onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
+                      style={({ pressed }) => [
+                        styles.quietInlineTimeButton,
+                        pressed && styles.estimateButtonPressed,
+                      ]}
+                    >
+                      <Text style={styles.quietInlineTimeText}>{quietStartInput || '22:00'}</Text>
+                    </SoftPressable>
+                    <Text style={styles.quietInlineTimeSep}>–</Text>
+                    <SoftPressable
+                      onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
+                      style={({ pressed }) => [
+                        styles.quietInlineTimeButton,
+                        pressed && styles.estimateButtonPressed,
+                      ]}
+                    >
+                      <Text style={styles.quietInlineTimeText}>{quietEndInput || '08:00'}</Text>
+                    </SoftPressable>
+                  </>
+                ) : (
+                  <Text style={styles.quietInlineDisabledText}>{isEnglish ? 'Not set' : '未设置'}</Text>
+                )}
               </View>
+              <Text style={styles.quietInlineDesc}>{copy.quietDescription}</Text>
             </View>
           </View>
-        ) : null}
-        <SoftPressable
-          onPress={() => {
-            const intervalInput = deriveIntervalInput(settings.reminderInterval);
-            setQuietStartInput(settings.reminderQuietStart);
-            setQuietEndInput(settings.reminderQuietEnd);
-            setCustomReminderIntervalInput(intervalInput.value);
-            setCustomReminderIntervalUnit(intervalInput.unit);
-            setReminderTimesInput(settings.reminderTimes);
-            setReminderTimeInput('');
-            setIsQuietModalVisible(true);
-          }}
-          style={({ pressed }) => [
-            styles.quietEntry,
-            pressed && styles.estimateButtonPressed,
-          ]}
-        >
-          <View style={styles.quietEntryLeft}>
-            <View style={styles.quietEntryIcon}>
-              <Feather name="clock" size={15} color={colors.primary} />
-            </View>
-            <View style={styles.quietEntryCopy}>
-              <Text style={styles.quietEntryTitle}>{copy.reminderDetailTitle}</Text>
-              <Text style={styles.quietEntrySummary}>{copy.reminderEntryDescription}</Text>
-            </View>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
-        </SoftPressable>
+          <Switch
+            value={quietHoursEnabled}
+            onValueChange={toggleQuietHours}
+            trackColor={{ false: colors.trackBackground, true: colors.primarySoft }}
+            thumbColor={quietHoursEnabled ? colors.primary : colors.textSecondary}
+          />
+        </View>
       </View>
       {/* 系统设置 */}
       <SoftPressable
@@ -1460,218 +1549,6 @@ export default function SettingsScreen() {
                   </Text>
                 </SoftPressable>
               </View>
-            </ScrollView>
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </Modal>
-      <Modal
-        visible={isQuietModalVisible}
-        transparent
-        animationType="none"
-        hardwareAccelerated
-        statusBarTranslucent
-        onRequestClose={() => setIsQuietModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalRoot}
-        >
-          <Animated.View
-            entering={FadeIn.duration(280)}
-            exiting={FadeOut.duration(200)}
-            style={styles.modalBackdrop}
-          >
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => setIsQuietModalVisible(false)}
-            />
-          </Animated.View>
-          <Animated.View
-            entering={FadeInDown.duration(460).easing(Easing.out(Easing.cubic))}
-            exiting={FadeOutDown.duration(220).easing(Easing.in(Easing.cubic))}
-            style={[
-              styles.modalCard,
-              styles.systemModalCard,
-              { marginTop: Math.max(insets.top + 20, 36) },
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderCopy}>
-                <Text style={styles.modalTitle}>{copy.reminderDetailTitle}</Text>
-                <Text style={styles.modalDescription}>{copy.reminderDetailDescription}</Text>
-              </View>
-              <SoftPressable
-                onPress={() => setIsQuietModalVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel={copy.close}
-                style={({ pressed }) => [
-                  styles.closeButton,
-                  pressed && styles.closeButtonPressed,
-                ]}
-              >
-                <Feather name="x" size={21} color={colors.textSecondary} />
-              </SoftPressable>
-            </View>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.reminderModalContent}
-            >
-              <View style={[styles.quietSection, styles.quietModalPanel]}>
-              <View style={styles.quietHeader}>
-                <View style={styles.quietTitleRow}>
-                  <Feather name="repeat" size={15} color={colors.textSecondary} />
-                  <Text style={styles.quietTitle}>{copy.customIntervalTitle}</Text>
-                </View>
-                <Text style={styles.quietSummary}>{copy.customIntervalDescription}</Text>
-              </View>
-              <View style={styles.reminderControl}>
-                <View style={styles.reminderInputShell}>
-                  <TextInput
-                    value={customReminderIntervalInput}
-                    onChangeText={(value) => setCustomReminderIntervalInput(
-                      value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
-                    )}
-                    keyboardType="number-pad"
-                    maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
-                    placeholder={copy.customIntervalPlaceholder}
-                    placeholderTextColor={colors.textSecondary}
-                    style={styles.customInput}
-                  />
-                  <SoftPressable
-                    onPress={toggleCustomReminderIntervalUnit}
-                    style={({ pressed }) => [
-                      styles.intervalUnitButton,
-                      pressed && styles.estimateButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.intervalUnitText}>
-                      {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
-                    </Text>
-                  </SoftPressable>
-                </View>
-              </View>
-              {!isCustomReminderIntervalValid ? (
-                <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
-              ) : null}
-            </View>
-
-
-              <View style={[styles.quietSection, styles.quietModalPanel]}>
-                <View style={styles.quietHeader}>
-                  <View style={styles.quietTitleRow}>
-                    <Feather name="bell" size={15} color={colors.textSecondary} />
-                  <Text style={styles.quietTitle}>{copy.exactTimeTitle}</Text>
-                </View>
-                <Text style={styles.quietSummary}>{copy.exactTimeDescription}</Text>
-              </View>
-              <View style={styles.reminderTimeList}>
-                {reminderTimesInput.length > 0 ? reminderTimesInput.map((time) => (
-                  <SoftPressable
-                    key={time}
-                    onPress={() => removeReminderTime(time)}
-                    style={({ pressed }) => [
-                      styles.reminderTimePill,
-                      pressed && styles.estimateButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.reminderTimePillText}>{time} x</Text>
-                  </SoftPressable>
-                )) : (
-                  <Text style={styles.quietSummary}>{copy.exactTimeEmpty}</Text>
-                )}
-              </View>
-              <View style={styles.reminderControl}>
-                <SoftPressable
-                  onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
-                  style={({ pressed }) => [
-                    styles.timeSelectButton,
-                    pressed && styles.estimateButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.timeSelectText}>{reminderTimeInput || '09:00'}</Text>
-                  <Feather name="chevron-down" size={15} color={colors.textSecondary} />
-                </SoftPressable>
-                <SoftPressable
-                  onPress={addReminderTime}
-                  disabled={!isValidTimeInput(reminderTimeInput)}
-                  style={({ pressed }) => [
-                    styles.addTimeButton,
-                    isValidTimeInput(reminderTimeInput) && styles.addTimeButtonEnabled,
-                    pressed && isValidTimeInput(reminderTimeInput) && styles.saveButtonPressed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.saveButtonText,
-                      !isValidTimeInput(reminderTimeInput) && styles.saveButtonTextDisabled,
-                    ]}
-                  >
-                    {copy.addTime}
-                  </Text>
-                </SoftPressable>
-              </View>
-            </View>
-
-            <View style={[styles.quietSection, styles.quietModalPanel]}>
-              <View style={styles.quietHeader}>
-                <View style={styles.quietTitleRow}>
-                  <Feather name="moon" size={15} color={colors.textSecondary} />
-                  <Text style={styles.quietTitle}>{copy.quietTitle}</Text>
-                </View>
-                <Text style={styles.quietSummary}>{quietSummary}</Text>
-              </View>
-              <View style={styles.quietTimeRow}>
-                <View style={styles.quietTimeField}>
-                  <Text style={styles.quietTimeLabel}>{copy.quietStart}</Text>
-                  <SoftPressable
-                    onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
-                    style={({ pressed }) => [
-                      styles.quietTimeInput,
-                      !isQuietStartValid && styles.quietTimeInputInvalid,
-                      pressed && styles.estimateButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.quietTimeInputText}>{quietStartInput || '22:00'}</Text>
-                    <Feather name="chevron-down" size={14} color={colors.textSecondary} />
-                  </SoftPressable>
-                </View>
-                <View style={styles.quietTimeField}>
-                  <Text style={styles.quietTimeLabel}>{copy.quietEnd}</Text>
-                  <SoftPressable
-                    onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
-                    style={({ pressed }) => [
-                      styles.quietTimeInput,
-                      !isQuietEndValid && styles.quietTimeInputInvalid,
-                      pressed && styles.estimateButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.quietTimeInputText}>{quietEndInput || '08:00'}</Text>
-                    <Feather name="chevron-down" size={14} color={colors.textSecondary} />
-                  </SoftPressable>
-                </View>
-              </View>
-              {!isQuietWindowValid ? (
-                <Text style={styles.quietInvalidText}>{copy.quietInvalid}</Text>
-              ) : null}
-              <SoftPressable
-                onPress={saveReminderSettings}
-                disabled={!isQuietWindowValid || !isCustomReminderIntervalValid}
-                style={({ pressed }) => [
-                  styles.modalPrimaryButton,
-                  pressed && isQuietWindowValid && isCustomReminderIntervalValid && styles.saveButtonPressed,
-                  (!isQuietWindowValid || !isCustomReminderIntervalValid) && styles.saveButtonDisabled,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modalPrimaryText,
-                    (!isQuietWindowValid || !isCustomReminderIntervalValid) && styles.saveButtonTextDisabled,
-                  ]}
-                >
-                  {copy.reminderSettingsSave}
-                </Text>
-              </SoftPressable>
-            </View>
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
@@ -2224,6 +2101,97 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   quietInvalidText: {
     color: colors.primary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  inlineSectionTitle: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: layout.body,
+    marginTop: layout.s(14),
+    marginBottom: layout.s(6),
+  },
+  inlineTimePills: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: layout.s(8),
+    alignItems: 'center' as const,
+  },
+  addTimePill: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: layout.s(4),
+    borderRadius: Theme.radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed' as const,
+    paddingHorizontal: layout.s(14),
+    paddingVertical: layout.s(7),
+  },
+  addTimePillText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: layout.s(13),
+  },
+  quietInlineRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 15,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingVertical: layout.s(12),
+    paddingHorizontal: layout.s(14),
+    gap: layout.s(12),
+  },
+  quietInlineLeft: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: layout.s(10),
+  },
+  quietInlineIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  quietInlineCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  quietInlineTimeRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: layout.s(6),
+  },
+  quietInlineTimeButton: {
+    backgroundColor: colors.surface,
+    borderRadius: Theme.radius.input,
+    paddingHorizontal: layout.s(10),
+    paddingVertical: layout.s(4),
+  },
+  quietInlineTimeText: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+  },
+  quietInlineTimeSep: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 14,
+  },
+  quietInlineDisabledText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 14,
+  },
+  quietInlineDesc: {
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
     lineHeight: 17,
