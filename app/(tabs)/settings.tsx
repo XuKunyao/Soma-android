@@ -2521,13 +2521,13 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   exactTimeDeleteAction: {
     flex: 1,
-    backgroundColor: colors.danger,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
   exactTimeDeleteActionPressed: {
-    backgroundColor: colors.dangerPressed || colors.danger,
+    backgroundColor: colors.primaryPressed,
   },
   exactTimeDeleteText: {
     color: colors.surface,
