@@ -1345,8 +1345,8 @@ export default function SettingsScreen() {
           <Switch
             value={quietHoursEnabled}
             onValueChange={toggleQuietHours}
-            trackColor={{ false: colors.trackBackground, true: colors.primarySoft }}
-            thumbColor={quietHoursEnabled ? colors.primary : colors.textSecondary}
+            trackColor={{ false: colors.trackBackground, true: colors.primary }}
+            thumbColor={colors.surface}
           />
         </View>
       </View>
@@ -2278,7 +2278,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingHorizontal: layout.s(12),
   },
   customInputShell: {
-    width: layout.s(90),
+    flex: 1,
     minHeight: layout.s(42),
     backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.input,
