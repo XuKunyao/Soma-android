@@ -1209,8 +1209,8 @@ export default function SettingsScreen() {
                 value={customCupSize}
                 onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad"
-                placeholder={String(settings.cupSize)}
-                placeholderTextColor={colors.textSecondary}
+                placeholder="250"
+                placeholderTextColor={colors.textSecondary + '80'}
                 style={styles.customInput}
               />
               <Text style={styles.inputUnit}>ml</Text>
@@ -1282,8 +1282,8 @@ export default function SettingsScreen() {
                 )}
                 keyboardType="number-pad"
                 maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
-                placeholder={settings.reminderCustomInterval > 0 ? String(customReminderIntervalUnit === 'hour' ? settings.reminderCustomInterval / 60 : settings.reminderCustomInterval) : copy.customIntervalPlaceholder}
-                placeholderTextColor={colors.textSecondary}
+                placeholder="30"
+                placeholderTextColor={colors.textSecondary + '80'}
                 style={styles.customInput}
               />
               <SoftPressable
