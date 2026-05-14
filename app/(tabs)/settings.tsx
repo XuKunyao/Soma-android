@@ -1247,8 +1247,15 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <View style={styles.settingHeader}>
           <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
-          <SoftPressable onPress={() => setIsExactTimeModalVisible(true)}>
-            <Text style={styles.headerAction}>{copy.exactTimeTitle}</Text>
+          <SoftPressable
+            onPress={() => setIsExactTimeModalVisible(true)}
+            style={({ pressed }) => [
+              styles.estimatePill,
+              pressed && styles.estimateButtonPressed,
+            ]}
+          >
+            <Text style={styles.estimatePillText}>{copy.exactTimeTitle}</Text>
+            <Feather name="chevron-right" size={13} color={colors.primary} />
           </SoftPressable>
         </View>
         <Text style={styles.cardDescription}>
@@ -1396,7 +1403,7 @@ export default function SettingsScreen() {
             <Feather name="settings" size={17} color={colors.primary} />
           </View>
           <View style={styles.systemEntryCopy}>
-            <Text style={styles.cardTitle}>{copy.systemTitle}</Text>
+            <Text style={[styles.cardTitle, { marginBottom: 4 }]}>{copy.systemTitle}</Text>
             <Text style={styles.systemEntryDescription} numberOfLines={1}>
               {copy.systemEntryDescription}
             </Text>
@@ -1423,7 +1430,7 @@ export default function SettingsScreen() {
             style={StyleSheet.absoluteFill}
             onPress={() => setIsExactTimeModalVisible(false)}
           />
-          <Animated.View style={styles.modalContainer}>
+          <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
                 <Text style={styles.modalTitle}>{copy.exactTimeTitle}</Text>
@@ -1467,7 +1474,7 @@ export default function SettingsScreen() {
                 </SoftPressable>
               </View>
             </View>
-          </Animated.View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1970,7 +1977,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontSize: layout.sectionTitle,
     fontFamily: Theme.fonts.medium,
     color: colors.text,
-    marginBottom: 5,
+    marginBottom: 6,
   },
   headerCardTitle: {
     marginBottom: 0,
