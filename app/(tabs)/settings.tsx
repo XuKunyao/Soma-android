@@ -1417,23 +1417,39 @@ export default function SettingsScreen() {
       <Modal
         visible={isExactTimeModalVisible}
         transparent
-        animationType="fade"
+        animationType="none"
         hardwareAccelerated
         statusBarTranslucent
         onRequestClose={() => setIsExactTimeModalVisible(false)}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={styles.modalRoot}
         >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setIsExactTimeModalVisible(false)}
-          />
-          <View style={styles.modalContainer}>
+          <Animated.View
+            entering={FadeIn.duration(320)}
+            exiting={FadeOut.duration(220)}
+            style={styles.modalBackdrop}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setIsExactTimeModalVisible(false)}
+            />
+          </Animated.View>
+          <Animated.View
+            entering={FadeInDown.duration(520).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOutDown.duration(240).easing(Easing.in(Easing.cubic))}
+            style={[
+              styles.modalCard,
+              { marginTop: Math.max(insets.top + 20, 36) },
+            ]}
+          >
             <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
+              <View style={styles.modalHeaderCopy}>
                 <Text style={styles.modalTitle}>{copy.exactTimeTitle}</Text>
+                <Text style={styles.modalDescription}>
+                  {copy.exactTimeDescription}
+                </Text>
               </View>
               <SoftPressable
                 onPress={() => setIsExactTimeModalVisible(false)}
@@ -1444,37 +1460,43 @@ export default function SettingsScreen() {
                   pressed && styles.closeButtonPressed,
                 ]}
               >
-                <Feather name="x" size={22} color={colors.textSecondary} />
+                <Feather name="x" size={24} color={colors.textSecondary} />
               </SoftPressable>
             </View>
-            <View style={[styles.modalContent, styles.reminderModalContent]}>
-              <Text style={[styles.cardDescription, { marginBottom: 16 }]}>{copy.exactTimeDescription}</Text>
-              <View style={styles.inlineTimePills}>
-                {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.modalBody}>
+                <View style={styles.inlineTimePills}>
+                  {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
+                    <SoftPressable
+                      key={time}
+                      onPress={() => removeReminderTime(time)}
+                      style={({ pressed }) => [
+                        styles.reminderSummaryPill,
+                        pressed && styles.estimateButtonPressed,
+                      ]}
+                    >
+                      <Text style={styles.reminderSummaryPillText}>{time}  ×</Text>
+                    </SoftPressable>
+                  )) : null}
                   <SoftPressable
-                    key={time}
-                    onPress={() => removeReminderTime(time)}
+                    onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
                     style={({ pressed }) => [
-                      styles.reminderSummaryPill,
+                      styles.addTimePill,
                       pressed && styles.estimateButtonPressed,
                     ]}
                   >
-                    <Text style={styles.reminderSummaryPillText}>{time}  ×</Text>
+                    <Feather name="plus" size={14} color={colors.textSecondary} />
+                    <Text style={styles.addTimePillText}>{copy.addTime}</Text>
                   </SoftPressable>
-                )) : null}
-                <SoftPressable
-                  onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
-                  style={({ pressed }) => [
-                    styles.addTimePill,
-                    pressed && styles.estimateButtonPressed,
-                  ]}
-                >
-                  <Feather name="plus" size={14} color={colors.textSecondary} />
-                  <Text style={styles.addTimePillText}>{copy.addTime}</Text>
-                </SoftPressable>
+                </View>
               </View>
-            </View>
-          </View>
+            </ScrollView>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
 
