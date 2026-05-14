@@ -51,6 +51,7 @@ import Animated, {
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
@@ -1536,8 +1537,9 @@ export default function SettingsScreen() {
         statusBarTranslucent
         onRequestClose={() => setIsExactTimeModalVisible(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalRoot}
         >
           <Animated.View
@@ -1668,6 +1670,7 @@ export default function SettingsScreen() {
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
+        </GestureHandlerRootView>
       </Modal>
 
       <Modal
@@ -2518,13 +2521,13 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   exactTimeDeleteAction: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
   exactTimeDeleteActionPressed: {
-    backgroundColor: colors.primaryPressed,
+    backgroundColor: colors.dangerPressed || colors.danger,
   },
   exactTimeDeleteText: {
     color: colors.surface,
