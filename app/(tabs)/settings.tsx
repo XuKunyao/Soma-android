@@ -690,6 +690,7 @@ export default function SettingsScreen() {
   );
   const [reminderTimeInput, setReminderTimeInput] = React.useState('');
   const [reminderTimesInput, setReminderTimesInput] = React.useState<string[]>(settings.reminderTimes);
+  const [editingReminderTime, setEditingReminderTime] = React.useState<string | null>(null);
   const [timePickerTarget, setTimePickerTarget] = React.useState<TimePickerTarget | null>(null);
   const [timePickerHour, setTimePickerHour] = React.useState(9);
   const [timePickerMinute, setTimePickerMinute] = React.useState(0);
@@ -1082,11 +1083,16 @@ export default function SettingsScreen() {
     updateSettings({ reminderTimes: nextTimes });
   };
 
-  const openTimePicker = (target: TimePickerTarget, currentValue: string) => {
+  const openTimePicker = (target: TimePickerTarget, currentValue: string, editTargetTime?: string) => {
     const { hour, minute } = splitTimeValue(currentValue);
     setTimePickerTarget(target);
     setTimePickerHour(hour);
     setTimePickerMinute(minute);
+    if (editTargetTime) {
+      setEditingReminderTime(editTargetTime);
+    } else {
+      setEditingReminderTime(null);
+    }
   };
 
   const confirmTimePicker = () => {
@@ -1102,12 +1108,32 @@ export default function SettingsScreen() {
       setQuietEndInput(nextTime);
       updateSettings({ reminderQuietEnd: nextTime });
     } else {
-      if (!settings.reminderTimes.includes(nextTime)) {
-        const nextTimes = normalizeReminderTimes([...settings.reminderTimes, nextTime]);
-        updateSettings({
-          reminderTimes: nextTimes,
-          reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== nextTime),
-        });
+      if (editingReminderTime) {
+        if (nextTime !== editingReminderTime) {
+          const wasEnabled = settings.reminderTimes.includes(editingReminderTime);
+          const filteredEnabled = settings.reminderTimes.filter(t => t !== editingReminderTime);
+          const filteredDisabled = (settings.reminderDisabledTimes || []).filter(t => t !== editingReminderTime);
+
+          if (wasEnabled) {
+            updateSettings({
+              reminderTimes: normalizeReminderTimes([...filteredEnabled, nextTime]),
+              reminderDisabledTimes: filteredDisabled.filter(t => t !== nextTime),
+            });
+          } else {
+            updateSettings({
+              reminderTimes: filteredEnabled.filter(t => t !== nextTime),
+              reminderDisabledTimes: Array.from(new Set([...filteredDisabled, nextTime])).sort(),
+            });
+          }
+        }
+      } else {
+        if (!settings.reminderTimes.includes(nextTime)) {
+          const nextTimes = normalizeReminderTimes([...settings.reminderTimes, nextTime]);
+          updateSettings({
+            reminderTimes: nextTimes,
+            reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== nextTime),
+          });
+        }
       }
     }
 
@@ -1481,32 +1507,41 @@ export default function SettingsScreen() {
                     .map((time) => {
                       const isEnabled = settings.reminderTimes.includes(time);
                       return (
-                        <View key={time} style={styles.exactTimeRow}>
+                        <SoftPressable
+                          key={time}
+                          onPress={() => openTimePicker('reminderTime', time, time)}
+                          style={({ pressed }) => [
+                            styles.exactTimeRow,
+                            pressed && styles.activityCardPressed,
+                          ]}
+                        >
                           <View style={styles.exactTimeLeft}>
                             <View style={styles.exactTimeDot} />
                             <Text style={styles.exactTimeText}>{time}</Text>
                           </View>
-                          <CustomSwitch
-                            value={isEnabled}
-                            onValueChange={(val) => {
-                              if (val) {
-                                const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
-                                updateSettings({
-                                  reminderTimes: nextTimes,
-                                  reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
-                                });
-                              } else {
-                                updateSettings({
-                                  reminderTimes: settings.reminderTimes.filter(t => t !== time),
-                                  reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
-                                });
-                              }
-                            }}
-                            trackActive={colors.primary}
-                            trackInactive={colors.surfaceMuted}
-                            thumbColor={colors.surface}
-                          />
-                        </View>
+                          <View onStartShouldSetResponder={() => true}>
+                            <CustomSwitch
+                              value={isEnabled}
+                              onValueChange={(val) => {
+                                if (val) {
+                                  const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
+                                  updateSettings({
+                                    reminderTimes: nextTimes,
+                                    reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
+                                  });
+                                } else {
+                                  updateSettings({
+                                    reminderTimes: settings.reminderTimes.filter(t => t !== time),
+                                    reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
+                                  });
+                                }
+                              }}
+                              trackActive={colors.primary}
+                              trackInactive={colors.surfaceMuted}
+                              thumbColor={colors.surface}
+                            />
+                          </View>
+                        </SoftPressable>
                       );
                   })}
                   <SoftPressable
@@ -1516,7 +1551,7 @@ export default function SettingsScreen() {
                       pressed && styles.estimateButtonPressed,
                     ]}
                   >
-                    <Feather name="plus" size={14} color={colors.textSecondary} />
+                    <Feather name="plus" size={15} color={colors.primary} />
                     <Text style={styles.addTimeDashedButtonText}>{copy.addTime}</Text>
                   </SoftPressable>
                 </View>
@@ -2298,6 +2333,55 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: layout.s(13),
+  },
+  addTimeDashedButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: layout.s(6),
+    paddingVertical: layout.s(14),
+    borderWidth: 1,
+    borderStyle: 'dashed' as const,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: Theme.radius.card,
+    marginTop: layout.s(4),
+  },
+  addTimeDashedButtonText: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(14),
+  },
+  exactTimeList: {
+    paddingTop: layout.s(8),
+    paddingBottom: layout.s(16),
+  },
+  exactTimeRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: layout.s(16),
+    paddingVertical: layout.s(14),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+    borderRadius: Theme.radius.card,
+    backgroundColor: colors.surface,
+    marginBottom: layout.s(8),
+  },
+  exactTimeLeft: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: layout.s(14),
+  },
+  exactTimeDot: {
+    width: layout.s(6),
+    height: layout.s(6),
+    borderRadius: layout.s(3),
+    backgroundColor: colors.primary,
+  },
+  exactTimeText: {
+    fontSize: layout.s(16),
+    fontFamily: Theme.fonts.regular,
+    color: colors.text,
   },
   quietInlineRow: {
     flexDirection: 'row' as const,
