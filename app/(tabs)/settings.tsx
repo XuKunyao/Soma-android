@@ -1324,6 +1324,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* 具体提醒时间 */}
+        <View style={styles.inlineDivider} />
         <Text style={styles.inlineSectionTitle}>{copy.exactTimeTitle}</Text>
         <View style={styles.inlineTimePills}>
           {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
@@ -1351,6 +1352,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* 勿扰时间段 */}
+        <View style={styles.inlineDivider} />
         <Text style={styles.inlineSectionTitle}>{copy.quietTitle}</Text>
         <View style={styles.quietInlineRow}>
           <View style={styles.quietInlineLeft}>
@@ -2159,12 +2161,18 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontSize: 12,
     lineHeight: 17,
   },
+  inlineDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: layout.s(20),
+    marginBottom: layout.s(16),
+  },
   inlineSectionTitle: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: layout.body,
-    marginTop: layout.s(14),
-    marginBottom: layout.s(6),
+    marginTop: 0,
+    marginBottom: layout.s(8),
   },
   inlineTimePills: {
     flexDirection: 'row' as const,
