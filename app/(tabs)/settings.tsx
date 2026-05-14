@@ -514,12 +514,12 @@ export default function SettingsScreen() {
       quietTitle: 'Quiet hours',
       quietDescription: 'No hydration reminders during this time.',
       reminderDetailTitle: 'Reminder settings',
-      reminderDetailDescription: 'Use exact times when set; otherwise Soma follows the interval.',
+      reminderDetailDescription: 'Exact times come first; otherwise Soma follows the interval.',
       customIntervalTitle: 'Custom interval',
-      customIntervalDescription: 'Leave empty to keep the preset options.',
+      customIntervalDescription: 'Leave empty to use the preset interval.',
       customIntervalPlaceholder: 'Minutes',
       exactTimeTitle: 'Exact reminder times',
-      exactTimeDescription: 'Specific times are used before interval reminders.',
+      exactTimeDescription: 'Daily times for hydration reminders.',
       exactTimeEmpty: 'No exact times yet.',
       addTime: 'Add',
       reminderSettingsSave: 'Save settings',
@@ -583,6 +583,17 @@ export default function SettingsScreen() {
       reminderDescription: '定期收到喝水提醒通知',
       quietTitle: '勿扰时间段',
       quietDescription: '这个时间段不会收到喝水提醒。',
+      reminderDetailTitle: '提醒设置',
+      reminderDetailDescription: '具体时间优先；未设置时按间隔提醒。',
+      customIntervalTitle: '自定义间隔',
+      customIntervalDescription: '不填则使用上方预设。',
+      customIntervalPlaceholder: '分钟',
+      exactTimeTitle: '具体提醒时间',
+      exactTimeDescription: '每天在这些时间提醒喝水。',
+      exactTimeEmpty: '还没有设置具体时间。',
+      addTime: '添加',
+      reminderSettingsSave: '保存提醒设置',
+      intervalInvalid: '请输入 5-720 分钟。',
       quietStart: '开始',
       quietEnd: '结束',
       quietSave: '保存',
@@ -685,15 +696,15 @@ export default function SettingsScreen() {
   const reminderModeSummary = activeReminderTimes.length > 0
     ? (isEnglish
       ? `${activeReminderTimes.length} exact ${activeReminderTimes.length === 1 ? 'time' : 'times'}`
-      : `??? ${activeReminderTimes.length} ?????`)
+      : `已设置 ${activeReminderTimes.length} 个具体时间`)
     : (isEnglish
       ? `Every ${formatIntervalLabel(settings.reminderInterval, language)}`
-      : `? ${formatIntervalLabel(settings.reminderInterval, language)}??`);
+      : `每 ${formatIntervalLabel(settings.reminderInterval, language)}提醒`);
   const customIntervalOption = settings.reminderCustomInterval > 0
     ? {
       label: isEnglish
         ? `Custom ${formatIntervalLabel(settings.reminderCustomInterval, language)}`
-        : `??? ${formatIntervalLabel(settings.reminderCustomInterval, language)}`,
+        : `自定义 ${formatIntervalLabel(settings.reminderCustomInterval, language)}`,
       labelEn: `Custom ${formatIntervalLabel(settings.reminderCustomInterval, 'en')}`,
       value: settings.reminderCustomInterval,
       kind: 'custom' as const,
@@ -1266,9 +1277,9 @@ export default function SettingsScreen() {
             </View>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.systemModalContent}
+              contentContainerStyle={styles.reminderModalContent}
             >
-            <View style={[styles.quietSection, styles.quietModalPanel]}>
+              <View style={[styles.quietSection, styles.quietModalPanel]}>
               <View style={styles.quietHeader}>
                 <View style={styles.quietTitleRow}>
                   <Feather name="repeat" size={15} color={colors.textSecondary} />
@@ -1276,8 +1287,8 @@ export default function SettingsScreen() {
                 </View>
                 <Text style={styles.quietSummary}>{copy.customIntervalDescription}</Text>
               </View>
-              <View style={styles.customControl}>
-                <View style={styles.customInputShell}>
+              <View style={styles.reminderControl}>
+                <View style={styles.reminderInputShell}>
                   <TextInput
                     value={customReminderIntervalInput}
                     onChangeText={(value) => setCustomReminderIntervalInput(value.replace(/\D/g, '').slice(0, 3))}
@@ -1295,10 +1306,11 @@ export default function SettingsScreen() {
               ) : null}
             </View>
 
-            <View style={[styles.quietSection, styles.quietModalPanel]}>
-              <View style={styles.quietHeader}>
-                <View style={styles.quietTitleRow}>
-                  <Feather name="bell" size={15} color={colors.textSecondary} />
+
+              <View style={[styles.quietSection, styles.quietModalPanel]}>
+                <View style={styles.quietHeader}>
+                  <View style={styles.quietTitleRow}>
+                    <Feather name="bell" size={15} color={colors.textSecondary} />
                   <Text style={styles.quietTitle}>{copy.exactTimeTitle}</Text>
                 </View>
                 <Text style={styles.quietSummary}>{copy.exactTimeDescription}</Text>
@@ -1319,8 +1331,8 @@ export default function SettingsScreen() {
                   <Text style={styles.quietSummary}>{copy.exactTimeEmpty}</Text>
                 )}
               </View>
-              <View style={styles.customControl}>
-                <View style={styles.customInputShell}>
+              <View style={styles.reminderControl}>
+                <View style={styles.reminderInputShell}>
                   <TextInput
                     value={reminderTimeInput}
                     onChangeText={(value) => setReminderTimeInput(formatTimeInput(value))}
@@ -1903,6 +1915,26 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     alignItems: 'center',
     gap: 8,
   },
+  reminderControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  reminderInputShell: {
+    minWidth: layout.s(118),
+    maxWidth: layout.s(170),
+    flexGrow: 1,
+    flexShrink: 1,
+    minHeight: layout.s(42),
+    backgroundColor: colors.surface,
+    borderRadius: Theme.radius.input,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: layout.s(12),
+  },
   customInputShell: {
     width: layout.s(90),
     minHeight: layout.s(42),
@@ -1984,6 +2016,10 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   systemModalCard: {
     maxHeight: '84%',
+  },
+  reminderModalContent: {
+    paddingBottom: 4,
+    gap: 10,
   },
   systemModalContent: {
     paddingBottom: 2,
