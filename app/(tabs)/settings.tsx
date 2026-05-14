@@ -26,6 +26,7 @@ import {
   useWindowDimensions,
   Alert,
   Switch,
+  Keyboard,
 } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
 import { Feather } from '@expo/vector-icons';
