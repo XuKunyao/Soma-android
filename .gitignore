@@ -45,3 +45,8 @@ google-services.json
 
 expo-env.d.ts
 # @end expo-cli
+
+# Build artifacts and scripts
+dist/
+eas.json
+build-apk.ps1
