@@ -1062,6 +1062,7 @@ export default function SettingsScreen() {
 
   const selectPresetCupSize = (size: number) => {
     updateSettings({ cupSize: size });
+    setAppliedCustomCupSize(null);
     setCustomCupSize('');
   };
 
@@ -1266,6 +1267,7 @@ export default function SettingsScreen() {
                       reminderInterval: interval.value,
                     });
                   }
+                  setAppliedCustomInterval(null);
                   setCustomReminderIntervalInput('');
                 }}
               />
@@ -1328,7 +1330,6 @@ export default function SettingsScreen() {
         </View>
 
         {/* 具体提醒时间 */}
-        <View style={styles.inlineDivider} />
         <Text style={styles.inlineSectionTitle}>{copy.exactTimeTitle}</Text>
         <View style={styles.inlineTimePills}>
           {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
@@ -1356,7 +1357,6 @@ export default function SettingsScreen() {
         </View>
 
         {/* 勿扰时间段 */}
-        <View style={styles.inlineDivider} />
         <Text style={styles.inlineSectionTitle}>{copy.quietTitle}</Text>
         <View style={styles.quietInlineRow}>
           <View style={styles.quietInlineLeft}>
@@ -2175,8 +2175,8 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: layout.body,
-    marginTop: 0,
-    marginBottom: layout.s(8),
+    marginTop: layout.s(14),
+    marginBottom: layout.s(6),
   },
   inlineTimePills: {
     flexDirection: 'row' as const,
@@ -2295,17 +2295,17 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   customSection: {
     alignItems: 'flex-start',
-    marginTop: 6,
-    paddingTop: 4,
+    marginTop: 2,
+    paddingTop: 2,
   },
   customCopy: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   customTitle: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   customControl: {
     flexDirection: 'row',
