@@ -230,7 +230,7 @@ function deriveIntervalInput(minutes: number): { value: string; unit: IntervalUn
   return { value: minutes > 0 ? String(minutes) : '', unit: 'min' };
 }
 
-/** 滚轮式时间选择列 — 中心位置始终为选中项 */
+/** 滚轮式时间选择列 — 中心位置始终为选中项，支持循环滚动 */
 function WheelColumn({
   data,
   selectedValue,
@@ -247,28 +247,51 @@ function WheelColumn({
   const flatListRef = React.useRef<FlatList<number>>(null);
   const paddingItems = Math.floor(PICKER_VISIBLE_ITEMS / 2);
   const paddingHeight = paddingItems * PICKER_ITEM_HEIGHT;
+  const dataLen = data.length;
 
-  // 选中值变化时滚动到对应位置
+  // 重复 3 组数据实现循环效果
+  const repeatedData = React.useMemo(() => [...data, ...data, ...data], [data]);
+  const middleOffset = dataLen; // 中间组的起始 index
+
+  // 静默跳到中间组（不带动画）
+  const snapToMiddle = React.useCallback(
+    (realIndex: number) => {
+      flatListRef.current?.scrollToOffset({
+        offset: (middleOffset + realIndex) * PICKER_ITEM_HEIGHT,
+        animated: false,
+      });
+    },
+    [middleOffset],
+  );
+
+  // 选中值变化时滚动到中间组的对应位置
   React.useEffect(() => {
-    const index = data.indexOf(selectedValue);
-    if (index >= 0 && flatListRef.current) {
+    const realIndex = data.indexOf(selectedValue);
+    if (realIndex >= 0 && flatListRef.current) {
       flatListRef.current.scrollToOffset({
-        offset: index * PICKER_ITEM_HEIGHT,
+        offset: (middleOffset + realIndex) * PICKER_ITEM_HEIGHT,
         animated: true,
       });
     }
-  }, [selectedValue, data]);
+  }, [selectedValue, data, middleOffset]);
 
   const handleScrollEnd = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = event.nativeEvent.contentOffset.y;
-      const index = Math.round(offsetY / PICKER_ITEM_HEIGHT);
-      const clamped = Math.max(0, Math.min(index, data.length - 1));
-      if (data[clamped] !== selectedValue) {
-        onValueChange(data[clamped]);
+      const repeatedIndex = Math.round(offsetY / PICKER_ITEM_HEIGHT);
+      const realIndex = ((repeatedIndex % dataLen) + dataLen) % dataLen;
+      const value = data[realIndex];
+
+      // 如果滚出中间组范围，静默跳回
+      if (repeatedIndex < dataLen || repeatedIndex >= dataLen * 2) {
+        snapToMiddle(realIndex);
+      }
+
+      if (value !== selectedValue) {
+        onValueChange(value);
       }
     },
-    [data, selectedValue, onValueChange],
+    [data, dataLen, selectedValue, onValueChange, snapToMiddle],
   );
 
   const renderItem = React.useCallback(
@@ -310,6 +333,8 @@ function WheelColumn({
     [],
   );
 
+  const initialIndex = middleOffset + Math.max(0, data.indexOf(selectedValue));
+
   return (
     <View style={{ flex: 1, height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS }}>
       {/* 中心选中行高亮背景 */}
@@ -326,8 +351,8 @@ function WheelColumn({
       />
       <FlatList
         ref={flatListRef}
-        data={data}
-        keyExtractor={(item) => String(item)}
+        data={repeatedData}
+        keyExtractor={(item, index) => `${index}`}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
         showsVerticalScrollIndicator={false}
@@ -338,7 +363,7 @@ function WheelColumn({
           paddingBottom: paddingHeight,
         }}
         onMomentumScrollEnd={handleScrollEnd}
-        initialScrollIndex={Math.max(0, data.indexOf(selectedValue))}
+        initialScrollIndex={initialIndex}
       />
     </View>
   );
@@ -1086,7 +1111,7 @@ export default function SettingsScreen() {
           {dailyGoalOptions.map((goal) => (
             <Chip
               key={goal}
-              label={`${goal} ml`}
+              label={DAILY_GOALS.includes(goal) ? `${goal} ml` : (isEnglish ? `Custom ${goal}ml` : `自定义 ${goal}ml`)}
               selected={settings.dailyGoal === goal}
               onPress={() => updateSettings({ dailyGoal: goal })}
             />
@@ -1104,7 +1129,7 @@ export default function SettingsScreen() {
           {cupSizeOptions.map((size) => (
             <Chip
               key={size}
-              label={`${size} ml`}
+              label={CUP_SIZES.includes(size) ? `${size} ml` : (isEnglish ? `Custom ${size}ml` : `自定义 ${size}ml`)}
               selected={settings.cupSize === size}
               onPress={() => selectPresetCupSize(size)}
             />
@@ -1206,19 +1231,30 @@ export default function SettingsScreen() {
           </View>
           <Feather name="chevron-right" size={18} color={colors.textSecondary} />
         </SoftPressable>
-        {activeReminderTimes.length > 0 ? (
-          <View style={styles.reminderSummaryList}>
-            <View style={styles.reminderSummaryHeader}>
-              <Feather name="bell" size={13} color={colors.textSecondary} />
-              <Text style={styles.reminderSummaryLabel}>{copy.exactTimeTitle}</Text>
-            </View>
-            <View style={styles.reminderSummaryPills}>
-              {activeReminderTimes.map((time) => (
-                <View key={time} style={styles.reminderSummaryPill}>
-                  <Text style={styles.reminderSummaryPillText}>{time}</Text>
+        {(activeReminderTimes.length > 0 || (settings.reminderQuietStart && settings.reminderQuietEnd)) ? (
+          <View style={styles.reminderSummarySection}>
+            {activeReminderTimes.length > 0 ? (
+              <View style={styles.reminderSummaryBlock}>
+                <Text style={styles.reminderSummaryLabel}>{copy.exactTimeTitle}</Text>
+                <View style={styles.reminderSummaryPills}>
+                  {activeReminderTimes.map((time) => (
+                    <View key={time} style={styles.reminderSummaryPill}>
+                      <Text style={styles.reminderSummaryPillText}>{time}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
+              </View>
+            ) : null}
+            {settings.reminderQuietStart && settings.reminderQuietEnd ? (
+              <View style={styles.reminderSummaryBlock}>
+                <Text style={styles.reminderSummaryLabel}>{copy.quietTitle}</Text>
+                <View style={styles.reminderSummaryPills}>
+                  <View style={styles.reminderQuietPill}>
+                    <Text style={styles.reminderQuietPillText}>{settings.reminderQuietStart} - {settings.reminderQuietEnd}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -1563,9 +1599,9 @@ export default function SettingsScreen() {
                   onPress={addReminderTime}
                   disabled={!isValidTimeInput(reminderTimeInput)}
                   style={({ pressed }) => [
-                    styles.saveButton,
+                    styles.addTimeButton,
+                    isValidTimeInput(reminderTimeInput) && styles.addTimeButtonEnabled,
                     pressed && isValidTimeInput(reminderTimeInput) && styles.saveButtonPressed,
-                    !isValidTimeInput(reminderTimeInput) && styles.saveButtonDisabled,
                   ]}
                 >
                   <Text
@@ -2027,19 +2063,12 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontSize: 12,
     lineHeight: 17,
   },
-  reminderSummaryList: {
-    marginTop: layout.s(12),
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: Theme.radius.input,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: layout.s(10),
-    gap: layout.s(8),
+  reminderSummarySection: {
+    marginTop: layout.s(10),
+    gap: layout.s(10),
   },
-  reminderSummaryHeader: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 5,
+  reminderSummaryBlock: {
+    gap: layout.s(6),
   },
   reminderSummaryLabel: {
     color: colors.textSecondary,
@@ -2061,6 +2090,32 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     color: colors.primary,
     fontFamily: Theme.fonts.medium,
     fontSize: layout.s(13),
+  },
+  reminderQuietPill: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: Theme.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: layout.s(12),
+    paddingVertical: layout.s(5),
+  },
+  reminderQuietPillText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(13),
+  },
+  addTimeButton: {
+    borderRadius: Theme.radius.button,
+    minHeight: layout.s(42),
+    paddingHorizontal: layout.s(16),
+    justifyContent: 'center' as const,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addTimeButtonEnabled: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   quietSection: {
     backgroundColor: colors.surfaceMuted,
