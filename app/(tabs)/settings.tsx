@@ -674,7 +674,7 @@ export default function SettingsScreen() {
       cupSizeDescription: 'Amount recorded when you tap “Drank a glass”.',
       customCup: 'Custom:',
       apply: 'Apply',
-      reminderTitle: 'Reminder interval',
+      reminderTitle: 'Reminder notifications',
       reminderDescription: 'Receive quiet hydration reminders.',
       quietTitle: 'Quiet hours',
       quietDescription: 'No hydration reminders during this time.',
@@ -749,7 +749,7 @@ export default function SettingsScreen() {
       cupSizeDescription: '每次点击“喝了一杯”时记录的水量',
       customCup: '自定义杯量：',
       apply: '应用',
-      reminderTitle: '提醒间隔',
+      reminderTitle: '提醒通知',
       reminderDescription: '定期收到喝水提醒通知',
       quietTitle: '勿扰时间段',
       quietDescription: '这个时间段不会收到喝水提醒。',
@@ -1173,7 +1173,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* 提醒间隔 */}
+      {/* 提醒通知 */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{copy.reminderTitle}</Text>
         <Text style={styles.cardDescription}>
@@ -1204,6 +1204,28 @@ export default function SettingsScreen() {
             );
           })}
         </View>
+        {activeReminderTimes.length > 0 ? (
+          <View style={styles.reminderSummaryBlock}>
+            <Text style={styles.reminderSummaryLabel}>{copy.exactTimeTitle}</Text>
+            <View style={styles.reminderSummaryPills}>
+              {activeReminderTimes.map((time) => (
+                <View key={time} style={styles.reminderSummaryPill}>
+                  <Text style={styles.reminderSummaryPillText}>{time}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        {settings.reminderQuietStart && settings.reminderQuietEnd ? (
+          <View style={styles.reminderSummaryBlock}>
+            <Text style={styles.reminderSummaryLabel}>{copy.quietTitle}</Text>
+            <View style={styles.reminderSummaryPills}>
+              <View style={styles.reminderQuietPill}>
+                <Text style={styles.reminderQuietPillText}>{settings.reminderQuietStart} - {settings.reminderQuietEnd}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
         <SoftPressable
           onPress={() => {
             const intervalInput = deriveIntervalInput(settings.reminderInterval);
@@ -1231,32 +1253,6 @@ export default function SettingsScreen() {
           </View>
           <Feather name="chevron-right" size={18} color={colors.textSecondary} />
         </SoftPressable>
-        {(activeReminderTimes.length > 0 || (settings.reminderQuietStart && settings.reminderQuietEnd)) ? (
-          <View style={styles.reminderSummarySection}>
-            {activeReminderTimes.length > 0 ? (
-              <View style={styles.reminderSummaryBlock}>
-                <Text style={styles.reminderSummaryLabel}>{copy.exactTimeTitle}</Text>
-                <View style={styles.reminderSummaryPills}>
-                  {activeReminderTimes.map((time) => (
-                    <View key={time} style={styles.reminderSummaryPill}>
-                      <Text style={styles.reminderSummaryPillText}>{time}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
-            {settings.reminderQuietStart && settings.reminderQuietEnd ? (
-              <View style={styles.reminderSummaryBlock}>
-                <Text style={styles.reminderSummaryLabel}>{copy.quietTitle}</Text>
-                <View style={styles.reminderSummaryPills}>
-                  <View style={styles.reminderQuietPill}>
-                    <Text style={styles.reminderQuietPillText}>{settings.reminderQuietStart} - {settings.reminderQuietEnd}</Text>
-                  </View>
-                </View>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
       </View>
       {/* 系统设置 */}
       <SoftPressable
@@ -2073,7 +2069,8 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   reminderSummaryLabel: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: layout.s(12),
+    fontSize: layout.body,
+    marginTop: layout.s(4),
   },
   reminderSummaryPills: {
     flexDirection: 'row' as const,
@@ -2109,7 +2106,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     minHeight: layout.s(42),
     paddingHorizontal: layout.s(16),
     justifyContent: 'center' as const,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.trackBackground,
     borderWidth: 1,
     borderColor: colors.border,
   },
