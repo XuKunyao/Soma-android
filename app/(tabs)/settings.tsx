@@ -611,7 +611,7 @@ export default function SettingsScreen() {
       quietTitle: '勿扰时间段',
       quietDescription: '这个时间段不会收到喝水提醒。',
       reminderDetailTitle: '提醒设置',
-      reminderDetailDescription: '具体时间优先，未设置时按间隔提醒。',
+      reminderDetailDescription: '具体时间优先，未设置时按间隔提醒',
       reminderEntryDescription: '设置具体时间、间隔和勿扰时段。',
       customIntervalTitle: '自定义间隔',
       customIntervalDescription: '默认显示当前选择的预设间隔。',
