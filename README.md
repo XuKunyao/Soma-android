@@ -12,7 +12,7 @@ Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的
 [![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=white)](https://reactnative.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white)](#download)
-[![Version](https://img.shields.io/badge/Version-1.0.2-D97757?style=flat-square)](#download)
+[![Version](https://img.shields.io/badge/Version-1.0.4-D97757?style=flat-square)](#download)
 [![Theme](https://img.shields.io/badge/Theme-Light%20%2F%20Dark-A67C63?style=flat-square)](#design)
 [![Language](https://img.shields.io/badge/Language-ZH%20%2F%20EN-7A9A6D?style=flat-square)](#features)
 [![Storage](https://img.shields.io/badge/Data-Local%20Only-69A297?style=flat-square)](#features)
@@ -42,7 +42,7 @@ Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的
 
 前往 [GitHub Releases](https://github.com/XuKunyao/Soma-android/releases) 页面下载最新版 APK，安装到 Android 设备即可使用。
 
-当前最新版本为 **v1.0.2**，支持 Android 设备。
+当前最新版本为 **v1.0.4**，支持 Android 设备。
 
 ## ✨ Features
 
@@ -54,7 +54,7 @@ Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的
 
 4、**智能目标估算：** 根据体重、性别参考、活动量和饮食习惯，为你生成个性化的每日饮水建议。算法参考《中国居民膳食指南（2022）》的日常饮水量范围，区分「喝水目标」和包含食物水分的「总水摄入」。估算结果仅适合作为健康成年人的日常参考，不替代医疗建议。
 
-5、**本地提醒：** 使用系统本地通知定时提醒你喝水，支持自定义提醒间隔和勿扰时间段。所有提醒调度在设备本地完成，不依赖任何服务器。
+5、**智能本地提醒：** 使用系统本地通知按时提醒你喝水。支持设定精确到分钟的多个具体提醒时间（提供美观的开关式卡片列表，支持侧滑删除、独立启停及防误触状态弱化），同时兼容基于间隔的周期提醒和勿扰时间段配置。所有调度在设备本地完成，不依赖任何服务器。
 
 6、**中英双语 & 深色模式：** 界面语言可在中文和英文之间自由切换。外观支持跟随系统的浅色和深色主题，深色模式采用暖灰色调而非纯黑，在夜间使用时温暖不刺眼。
 
