@@ -729,7 +729,7 @@ export default function SettingsScreen() {
       apply: 'Apply',
       reminderTitle: 'Reminder notifications',
       reminderDescription: 'Receive quiet hydration reminders.',
-      quietTitle: 'Quiet hours',
+      quietTitle: 'Quiet hours:',
       quietDescription: 'No hydration reminders during this time.',
       reminderDetailTitle: 'Reminder settings',
       reminderDetailDescription: 'Exact times come first; otherwise Soma follows the interval.',
@@ -804,7 +804,7 @@ export default function SettingsScreen() {
       apply: '应用',
       reminderTitle: '提醒通知',
       reminderDescription: '定期收到喝水提醒通知',
-      quietTitle: '勿扰时间段',
+      quietTitle: '勿扰时间段：',
       quietDescription: '这个时间段不会收到喝水提醒',
       reminderDetailTitle: '提醒设置',
       reminderDetailDescription: '具体时间优先，未设置时按间隔提醒',
@@ -1102,8 +1102,13 @@ export default function SettingsScreen() {
       setQuietEndInput(nextTime);
       updateSettings({ reminderQuietEnd: nextTime });
     } else {
-      const nextTimes = normalizeReminderTimes([...settings.reminderTimes, nextTime]);
-      updateSettings({ reminderTimes: nextTimes });
+      if (!settings.reminderTimes.includes(nextTime)) {
+        const nextTimes = normalizeReminderTimes([...settings.reminderTimes, nextTime]);
+        updateSettings({
+          reminderTimes: nextTimes,
+          reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== nextTime),
+        });
+      }
     }
 
     setTimePickerTarget(null);
@@ -1470,28 +1475,49 @@ export default function SettingsScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <View style={styles.modalBody}>
-                <View style={styles.inlineTimePills}>
-                  {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
-                    <SoftPressable
-                      key={time}
-                      onPress={() => removeReminderTime(time)}
-                      style={({ pressed }) => [
-                        styles.reminderSummaryPill,
-                        pressed && styles.estimateButtonPressed,
-                      ]}
-                    >
-                      <Text style={styles.reminderSummaryPillText}>{time}  ×</Text>
-                    </SoftPressable>
-                  )) : null}
+                <View style={styles.exactTimeList}>
+                  {Array.from(new Set([...settings.reminderTimes, ...(settings.reminderDisabledTimes || [])]))
+                    .sort()
+                    .map((time) => {
+                      const isEnabled = settings.reminderTimes.includes(time);
+                      return (
+                        <View key={time} style={styles.exactTimeRow}>
+                          <View style={styles.exactTimeLeft}>
+                            <View style={styles.exactTimeDot} />
+                            <Text style={styles.exactTimeText}>{time}</Text>
+                          </View>
+                          <CustomSwitch
+                            value={isEnabled}
+                            onValueChange={(val) => {
+                              if (val) {
+                                const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
+                                updateSettings({
+                                  reminderTimes: nextTimes,
+                                  reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
+                                });
+                              } else {
+                                updateSettings({
+                                  reminderTimes: settings.reminderTimes.filter(t => t !== time),
+                                  reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
+                                });
+                              }
+                            }}
+                            trackActive={colors.primary}
+                            trackInactive={colors.surfaceMuted}
+                            thumbColor={colors.surface}
+                          />
+                        </View>
+                      );
+                  })}
                   <SoftPressable
                     onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
                     style={({ pressed }) => [
-                      styles.addTimePill,
+                      styles.addTimeDashedButton,
                       pressed && styles.estimateButtonPressed,
                     ]}
                   >
                     <Feather name="plus" size={14} color={colors.textSecondary} />
-                    <Text style={styles.addTimePillText}>{copy.addTime}</Text>
+                    <Text style={styles.addTimeDashedButtonText}>{copy.addTime}</Text>
                   </SoftPressable>
                 </View>
               </View>
@@ -2246,9 +2272,10 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   inlineSectionTitle: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: layout.body,
+    fontSize: 13,
+    lineHeight: 18,
     marginTop: layout.s(14),
-    marginBottom: layout.s(6),
+    marginBottom: layout.s(8),
   },
   inlineTimePills: {
     flexDirection: 'row' as const,

@@ -26,6 +26,7 @@ export interface WaterSettings {
   reminderInterval: number;
   reminderCustomInterval: number;
   reminderTimes: string[];
+  reminderDisabledTimes: string[];
   reminderEnabled: boolean;
   reminderQuietStart: string;
   reminderQuietEnd: string;
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: WaterSettings = {
   reminderInterval: 60,
   reminderCustomInterval: 0,
   reminderTimes: [],
+  reminderDisabledTimes: [],
   reminderEnabled: true,
   reminderQuietStart: '22:00',
   reminderQuietEnd: '08:00',
