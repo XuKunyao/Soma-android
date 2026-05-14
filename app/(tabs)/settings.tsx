@@ -2501,7 +2501,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     backgroundColor: colors.primary,
   },
   exactTimeDotDisabled: {
-    backgroundColor: colors.textTertiary,
+    backgroundColor: colors.surfaceMuted,
   },
   exactTimeText: {
     fontSize: layout.s(16),
@@ -2509,7 +2509,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     color: colors.text,
   },
   exactTimeTextDisabled: {
-    color: colors.textSecondary,
+    color: colors.surfaceMuted,
   },
   exactTimeDeleteWrap: {
     width: 82,
