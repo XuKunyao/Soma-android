@@ -17,6 +17,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
+  FlatList,
   Pressable,
   Modal,
   KeyboardAvoidingView,
@@ -25,6 +26,7 @@ import {
   useWindowDimensions,
   Alert,
 } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -67,6 +69,8 @@ const DEFAULT_CUSTOM_INTERVAL_OPTION = {
 
 const TIME_HOURS = Array.from({ length: 24 }, (_, index) => index);
 const TIME_MINUTES = Array.from({ length: 60 }, (_, index) => index);
+const PICKER_ITEM_HEIGHT = 44;
+const PICKER_VISIBLE_ITEMS = 5;
 
 const LANGUAGE_OPTIONS = [
   { label: '中文', value: 'zh' as const },
@@ -224,6 +228,120 @@ function deriveIntervalInput(minutes: number): { value: string; unit: IntervalUn
   }
 
   return { value: minutes > 0 ? String(minutes) : '', unit: 'min' };
+}
+
+/** 滚轮式时间选择列 — 中心位置始终为选中项 */
+function WheelColumn({
+  data,
+  selectedValue,
+  onValueChange,
+  colors,
+  layout,
+}: {
+  data: number[];
+  selectedValue: number;
+  onValueChange: (value: number) => void;
+  colors: typeof Theme.colors;
+  layout: ReturnType<typeof createSettingsLayout>;
+}) {
+  const flatListRef = React.useRef<FlatList<number>>(null);
+  const paddingItems = Math.floor(PICKER_VISIBLE_ITEMS / 2);
+  const paddingHeight = paddingItems * PICKER_ITEM_HEIGHT;
+
+  // 选中值变化时滚动到对应位置
+  React.useEffect(() => {
+    const index = data.indexOf(selectedValue);
+    if (index >= 0 && flatListRef.current) {
+      flatListRef.current.scrollToOffset({
+        offset: index * PICKER_ITEM_HEIGHT,
+        animated: true,
+      });
+    }
+  }, [selectedValue, data]);
+
+  const handleScrollEnd = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      const index = Math.round(offsetY / PICKER_ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(index, data.length - 1));
+      if (data[clamped] !== selectedValue) {
+        onValueChange(data[clamped]);
+      }
+    },
+    [data, selectedValue, onValueChange],
+  );
+
+  const renderItem = React.useCallback(
+    ({ item }: { item: number }) => {
+      const selected = item === selectedValue;
+      return (
+        <View style={{ height: PICKER_ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
+          <Text
+            style={
+              selected
+                ? {
+                    color: colors.primary,
+                    fontFamily: Theme.fonts.medium,
+                    fontSize: layout.s(20),
+                    opacity: 1,
+                  }
+                : {
+                    color: colors.textSecondary,
+                    fontFamily: Theme.fonts.regular,
+                    fontSize: layout.s(16),
+                    opacity: 0.35,
+                  }
+            }
+          >
+            {String(item).padStart(2, '0')}
+          </Text>
+        </View>
+      );
+    },
+    [selectedValue, colors, layout],
+  );
+
+  const getItemLayout = React.useCallback(
+    (_: any, index: number) => ({
+      length: PICKER_ITEM_HEIGHT,
+      offset: PICKER_ITEM_HEIGHT * index,
+      index,
+    }),
+    [],
+  );
+
+  return (
+    <View style={{ flex: 1, height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS }}>
+      {/* 中心选中行高亮背景 */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: paddingHeight,
+          height: PICKER_ITEM_HEIGHT,
+          borderRadius: Theme.radius.input,
+          backgroundColor: colors.primarySoft,
+        }}
+      />
+      <FlatList
+        ref={flatListRef}
+        data={data}
+        keyExtractor={(item) => String(item)}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={PICKER_ITEM_HEIGHT}
+        decelerationRate="fast"
+        contentContainerStyle={{
+          paddingTop: paddingHeight,
+          paddingBottom: paddingHeight,
+        }}
+        onMomentumScrollEnd={handleScrollEnd}
+        initialScrollIndex={Math.max(0, data.indexOf(selectedValue))}
+      />
+    </View>
+  );
 }
 
 const ACTIVITY_LEVELS: {
@@ -1090,11 +1208,17 @@ export default function SettingsScreen() {
         </SoftPressable>
         {activeReminderTimes.length > 0 ? (
           <View style={styles.reminderSummaryList}>
-            {activeReminderTimes.map((time) => (
-              <View key={time} style={styles.reminderSummaryItem}>
-                <Text style={styles.reminderSummaryTime}>{time}</Text>
-              </View>
-            ))}
+            <View style={styles.reminderSummaryHeader}>
+              <Feather name="bell" size={13} color={colors.textSecondary} />
+              <Text style={styles.reminderSummaryLabel}>{copy.exactTimeTitle}</Text>
+            </View>
+            <View style={styles.reminderSummaryPills}>
+              {activeReminderTimes.map((time) => (
+                <View key={time} style={styles.reminderSummaryPill}>
+                  <Text style={styles.reminderSummaryPillText}>{time}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
       </View>
@@ -1535,65 +1659,38 @@ export default function SettingsScreen() {
           />
           <View style={styles.timePickerCard}>
             <View style={styles.timePickerHeader}>
-              <Text style={styles.timePickerTitle}>{copy.selectTime}</Text>
-              <Text style={styles.timePickerValue}>{toTimeValue(timePickerHour, timePickerMinute)}</Text>
+              <View style={styles.timePickerHeaderLeft}>
+                <Text style={styles.timePickerTitle}>{copy.selectTime}</Text>
+                <Text style={styles.timePickerValue}>{toTimeValue(timePickerHour, timePickerMinute)}</Text>
+              </View>
+              <SoftPressable
+                onPress={() => setTimePickerTarget(null)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={21} color={colors.textSecondary} />
+              </SoftPressable>
             </View>
             <View style={styles.timePickerColumns}>
-              <ScrollView
-                style={styles.timePickerColumn}
-                contentContainerStyle={styles.timePickerColumnContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {TIME_HOURS.map((hour) => {
-                  const selected = hour === timePickerHour;
-                  return (
-                    <SoftPressable
-                      key={hour}
-                      onPress={() => setTimePickerHour(hour)}
-                      style={({ pressed }) => [
-                        styles.timePickerOption,
-                        selected && styles.timePickerOptionSelected,
-                        pressed && styles.estimateButtonPressed,
-                      ]}
-                    >
-                      <Text style={[
-                        styles.timePickerOptionText,
-                        selected && styles.timePickerOptionTextSelected,
-                      ]}>
-                        {String(hour).padStart(2, '0')}
-                      </Text>
-                    </SoftPressable>
-                  );
-                })}
-              </ScrollView>
+              <WheelColumn
+                data={TIME_HOURS}
+                selectedValue={timePickerHour}
+                onValueChange={setTimePickerHour}
+                colors={colors}
+                layout={layout}
+              />
               <Text style={styles.timePickerDivider}>:</Text>
-              <ScrollView
-                style={styles.timePickerColumn}
-                contentContainerStyle={styles.timePickerColumnContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {TIME_MINUTES.map((minute) => {
-                  const selected = minute === timePickerMinute;
-                  return (
-                    <SoftPressable
-                      key={minute}
-                      onPress={() => setTimePickerMinute(minute)}
-                      style={({ pressed }) => [
-                        styles.timePickerOption,
-                        selected && styles.timePickerOptionSelected,
-                        pressed && styles.estimateButtonPressed,
-                      ]}
-                    >
-                      <Text style={[
-                        styles.timePickerOptionText,
-                        selected && styles.timePickerOptionTextSelected,
-                      ]}>
-                        {String(minute).padStart(2, '0')}
-                      </Text>
-                    </SoftPressable>
-                  );
-                })}
-              </ScrollView>
+              <WheelColumn
+                data={TIME_MINUTES}
+                selectedValue={timePickerMinute}
+                onValueChange={setTimePickerMinute}
+                colors={colors}
+                layout={layout}
+              />
             </View>
             <SoftPressable
               onPress={confirmTimePicker}
@@ -1931,22 +2028,39 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     lineHeight: 17,
   },
   reminderSummaryList: {
-    marginTop: layout.s(10),
-    gap: layout.s(8),
-  },
-  reminderSummaryItem: {
-    minHeight: layout.s(38),
-    borderRadius: Theme.radius.input,
+    marginTop: layout.s(12),
     backgroundColor: colors.surfaceMuted,
+    borderRadius: Theme.radius.input,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    justifyContent: 'center',
-    paddingHorizontal: layout.s(12),
+    padding: layout.s(10),
+    gap: layout.s(8),
   },
-  reminderSummaryTime: {
-    color: colors.text,
+  reminderSummaryHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 5,
+  },
+  reminderSummaryLabel: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: layout.s(12),
+  },
+  reminderSummaryPills: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: layout.s(6),
+  },
+  reminderSummaryPill: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: Theme.radius.full,
+    paddingHorizontal: layout.s(12),
+    paddingVertical: layout.s(5),
+  },
+  reminderSummaryPillText: {
+    color: colors.primary,
     fontFamily: Theme.fonts.medium,
-    fontSize: layout.s(14),
+    fontSize: layout.s(13),
   },
   quietSection: {
     backgroundColor: colors.surfaceMuted,
@@ -2488,6 +2602,12 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     justifyContent: 'space-between',
     gap: layout.s(12),
   },
+  timePickerHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: layout.s(10),
+  },
   timePickerTitle: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
@@ -2496,47 +2616,47 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   timePickerValue: {
     color: colors.primary,
     fontFamily: Theme.fonts.medium,
-    fontSize: layout.s(18),
+    fontSize: layout.s(20),
   },
   timePickerColumns: {
-    height: layout.s(220),
+    height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: layout.s(10),
+    gap: layout.s(4),
   },
   timePickerColumn: {
     flex: 1,
     alignSelf: 'stretch',
-  },
-  timePickerColumnContent: {
-    gap: layout.s(2),
-    paddingVertical: layout.s(4),
   },
   timePickerDivider: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: layout.s(22),
   },
+  timePickerHighlight: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: PICKER_ITEM_HEIGHT * Math.floor(PICKER_VISIBLE_ITEMS / 2),
+    height: PICKER_ITEM_HEIGHT,
+    borderRadius: Theme.radius.input,
+    backgroundColor: colors.primarySoft,
+  },
   timePickerOption: {
-    minHeight: layout.s(40),
-    borderRadius: Theme.radius.full,
+    height: PICKER_ITEM_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  timePickerOptionSelected: {
-    backgroundColor: colors.primarySoft,
   },
   timePickerOptionText: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
-    fontSize: layout.s(15),
-    opacity: 0.5,
+    fontSize: layout.s(16),
+    opacity: 0.35,
   },
   timePickerOptionTextSelected: {
     color: colors.primary,
     fontFamily: Theme.fonts.medium,
-    fontSize: layout.s(18),
+    fontSize: layout.s(20),
     opacity: 1,
   },
   modalScrollContent: {
