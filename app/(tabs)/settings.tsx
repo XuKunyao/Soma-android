@@ -739,7 +739,7 @@ export default function SettingsScreen() {
       exactTimeEmpty: 'No exact times yet.',
       addTime: 'Add time',
       reminderSettingsSave: 'Save settings',
-      intervalInvalid: 'Use 5-720 minutes.',
+      intervalInvalid: 'Use 1-720 minutes.',
       quietStart: 'From',
       quietEnd: 'To',
       quietSave: 'Save',
@@ -814,7 +814,7 @@ export default function SettingsScreen() {
       exactTimeEmpty: '还没有设置具体时间。',
       addTime: '添加时间',
       reminderSettingsSave: '保存提醒设置',
-      intervalInvalid: '请输入 5-720 分钟。',
+      intervalInvalid: '请输入 1-720 分钟。',
       quietStart: '开始',
       quietEnd: '结束',
       quietSave: '保存',
@@ -916,7 +916,7 @@ export default function SettingsScreen() {
     : parsedCustomReminderInterval;
   const isCustomReminderIntervalValid = !hasCustomReminderIntervalInput
     || (Number.isFinite(parsedCustomReminderIntervalMinutes)
-      && parsedCustomReminderIntervalMinutes >= 5
+      && parsedCustomReminderIntervalMinutes >= 1
       && parsedCustomReminderIntervalMinutes <= 720);
   const activeReminderTimes = normalizeReminderTimes(reminderTimesInput);
   const customIntervalOption = settings.reminderCustomInterval > 0
@@ -1355,7 +1355,7 @@ export default function SettingsScreen() {
         <View style={styles.quietInlineRow}>
           <View style={styles.quietInlineLeft}>
             <View style={styles.quietInlineIcon}>
-              <Feather name="moon" size={15} color={colors.textSecondary} />
+              <Feather name="moon" size={17} color={colors.primary} />
             </View>
             <View style={styles.quietInlineCopy}>
               <View style={styles.quietInlineTimeRow}>
@@ -2207,10 +2207,10 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     gap: layout.s(10),
   },
   quietInlineIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceMuted,
+    width: 38,
+    height: 38,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -2230,7 +2230,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingVertical: layout.s(4),
   },
   quietInlineTimeText: {
-    color: colors.text,
+    color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 14,
   },
@@ -2243,6 +2243,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 14,
+    paddingVertical: layout.s(4),
   },
   quietInlineDesc: {
     color: colors.textSecondary,
