@@ -2222,6 +2222,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: layout.s(6),
+    minHeight: layout.s(28),
   },
   quietInlineTimeButton: {
     backgroundColor: colors.surfaceMuted,
