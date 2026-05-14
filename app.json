@@ -35,6 +35,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#D97757"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "architectures": ["arm64-v8a"]
+          }
+        }
       ]
     ],
     "experiments": {
