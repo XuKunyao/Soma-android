@@ -694,6 +694,7 @@ export default function SettingsScreen() {
   const [timePickerHour, setTimePickerHour] = React.useState(9);
   const [timePickerMinute, setTimePickerMinute] = React.useState(0);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
+  const [isExactTimeModalVisible, setIsExactTimeModalVisible] = React.useState(false);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
   const [isQuietModalVisible, setIsQuietModalVisible] = React.useState(false);
   const [isAboutModalVisible, setIsAboutModalVisible] = React.useState(false);
@@ -733,7 +734,7 @@ export default function SettingsScreen() {
       reminderDetailTitle: 'Reminder settings',
       reminderDetailDescription: 'Exact times come first; otherwise Soma follows the interval.',
       reminderEntryDescription: 'Choose exact times, interval, and quiet hours.',
-      customIntervalTitle: 'Custom interval',
+      customIntervalTitle: 'Custom Interval:',
       customIntervalDescription: 'Defaults to the selected preset interval.',
       customIntervalPlaceholder: 'Interval',
       exactTimeTitle: 'Exact reminder times',
@@ -808,7 +809,7 @@ export default function SettingsScreen() {
       reminderDetailTitle: '提醒设置',
       reminderDetailDescription: '具体时间优先，未设置时按间隔提醒',
       reminderEntryDescription: '设置具体时间、间隔和勿扰时段。',
-      customIntervalTitle: '自定义间隔',
+      customIntervalTitle: '自定义间隔：',
       customIntervalDescription: '默认显示当前选择的预设间隔。',
       customIntervalPlaceholder: '间隔',
       exactTimeTitle: '设置具体提醒时间',
@@ -1244,7 +1245,12 @@ export default function SettingsScreen() {
 
       {/* 提醒通知 */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>{copy.reminderTitle}</Text>
+        <View style={styles.settingHeader}>
+          <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
+          <SoftPressable onPress={() => setIsExactTimeModalVisible(true)}>
+            <Text style={styles.headerAction}>{copy.exactTimeTitle}</Text>
+          </SoftPressable>
+        </View>
         <Text style={styles.cardDescription}>
           {copy.reminderDescription}
         </Text>
@@ -1329,33 +1335,6 @@ export default function SettingsScreen() {
           ) : null}
         </View>
 
-        {/* 具体提醒时间 */}
-        <Text style={styles.inlineSectionTitle}>{copy.exactTimeTitle}</Text>
-        <View style={styles.inlineTimePills}>
-          {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
-            <SoftPressable
-              key={time}
-              onPress={() => removeReminderTime(time)}
-              style={({ pressed }) => [
-                styles.reminderSummaryPill,
-                pressed && styles.estimateButtonPressed,
-              ]}
-            >
-              <Text style={styles.reminderSummaryPillText}>{time}  ×</Text>
-            </SoftPressable>
-          )) : null}
-          <SoftPressable
-            onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
-            style={({ pressed }) => [
-              styles.addTimePill,
-              pressed && styles.estimateButtonPressed,
-            ]}
-          >
-            <Feather name="plus" size={14} color={colors.textSecondary} />
-            <Text style={styles.addTimePillText}>{copy.addTime}</Text>
-          </SoftPressable>
-        </View>
-
         {/* 勿扰时间段 */}
         <Text style={styles.inlineSectionTitle}>{copy.quietTitle}</Text>
         <View style={styles.quietInlineRow}>
@@ -1427,6 +1406,70 @@ export default function SettingsScreen() {
       </SoftPressable>
 
       <View style={{ height: 32 }} />
+
+      <Modal
+        visible={isExactTimeModalVisible}
+        transparent
+        animationType="fade"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setIsExactTimeModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsExactTimeModalVisible(false)}
+          />
+          <Animated.View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Text style={styles.modalTitle}>{copy.exactTimeTitle}</Text>
+              </View>
+              <SoftPressable
+                onPress={() => setIsExactTimeModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={22} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+            <View style={[styles.modalContent, styles.reminderModalContent]}>
+              <Text style={[styles.cardDescription, { marginBottom: 16 }]}>{copy.exactTimeDescription}</Text>
+              <View style={styles.inlineTimePills}>
+                {settings.reminderTimes.length > 0 ? settings.reminderTimes.map((time) => (
+                  <SoftPressable
+                    key={time}
+                    onPress={() => removeReminderTime(time)}
+                    style={({ pressed }) => [
+                      styles.reminderSummaryPill,
+                      pressed && styles.estimateButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.reminderSummaryPillText}>{time}  ×</Text>
+                  </SoftPressable>
+                )) : null}
+                <SoftPressable
+                  onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
+                  style={({ pressed }) => [
+                    styles.addTimePill,
+                    pressed && styles.estimateButtonPressed,
+                  ]}
+                >
+                  <Feather name="plus" size={14} color={colors.textSecondary} />
+                  <Text style={styles.addTimePillText}>{copy.addTime}</Text>
+                </SoftPressable>
+              </View>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <Modal
         visible={isGoalModalVisible}
@@ -1927,7 +1970,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontSize: layout.sectionTitle,
     fontFamily: Theme.fonts.medium,
     color: colors.text,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   headerCardTitle: {
     marginBottom: 0,
