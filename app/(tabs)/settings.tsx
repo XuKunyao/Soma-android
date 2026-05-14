@@ -39,17 +39,86 @@ import Animated, {
   FadeInDown,
   FadeOut,
   FadeOutDown,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
   interpolateColor,
+  type SharedValue,
 } from 'react-native-reanimated';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/fixed-scale-text';
 import { buildWaterDataExport } from '@/utils/storage';
+
+function DeleteTimeAction({
+  progress,
+  onDelete,
+}: {
+  progress: SharedValue<number>;
+  onDelete?: () => void;
+}) {
+  const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const layout = React.useMemo(() => createSettingsLayout(width), [width]);
+  const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
+  const { state } = useWater();
+  const deleteLabel = state.settings.language === 'en' ? 'Delete' : '删除';
+
+  const actionStyle = useAnimatedStyle(() => {
+    const clampedProgress = Math.min(progress.value, 1.08);
+
+    return {
+      opacity: interpolate(
+        clampedProgress,
+        [0, 0.35, 0.92, 1.08],
+        [0, 0.72, 1, 1],
+        Extrapolation.CLAMP,
+      ),
+      transform: [
+        {
+          translateX: interpolate(
+            clampedProgress,
+            [0, 0.86, 1.08],
+            [22, -3, 0],
+            Extrapolation.CLAMP,
+          ),
+        },
+        {
+          scale: interpolate(
+            clampedProgress,
+            [0, 0.82, 1.08],
+            [0.9, 1.04, 1],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  });
+
+  return (
+    <View style={styles.exactTimeDeleteWrap}>
+      <Animated.View style={[styles.exactTimeDeleteMotion, actionStyle]}>
+        <Pressable
+          onPress={onDelete}
+          style={({ pressed }) => [
+            styles.exactTimeDeleteAction,
+            pressed && styles.exactTimeDeleteActionPressed,
+          ]}
+        >
+          <Feather name="trash-2" size={17} color={colors.surface} />
+          <Text style={styles.exactTimeDeleteText}>{deleteLabel}</Text>
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
 
 /** 可选的单次饮水量 */
 const CUP_SIZES = [100, 150, 200, 250, 300, 400, 500];
@@ -691,6 +760,20 @@ export default function SettingsScreen() {
   const [reminderTimeInput, setReminderTimeInput] = React.useState('');
   const [reminderTimesInput, setReminderTimesInput] = React.useState<string[]>(settings.reminderTimes);
   const [editingReminderTime, setEditingReminderTime] = React.useState<string | null>(null);
+  const openTimeActionRef = React.useRef<SwipeableMethods | null>(null);
+
+  const closeOpenTimeAction = React.useCallback(() => {
+    openTimeActionRef.current?.close();
+    openTimeActionRef.current = null;
+  }, []);
+
+  const handleTimeOpen = React.useCallback((swipeable: SwipeableMethods | null) => {
+    if (openTimeActionRef.current && openTimeActionRef.current !== swipeable) {
+      openTimeActionRef.current.close();
+    }
+    openTimeActionRef.current = swipeable;
+  }, []);
+
   const [timePickerTarget, setTimePickerTarget] = React.useState<TimePickerTarget | null>(null);
   const [timePickerHour, setTimePickerHour] = React.useState(9);
   const [timePickerMinute, setTimePickerMinute] = React.useState(0);
@@ -1499,49 +1582,75 @@ export default function SettingsScreen() {
               contentContainerStyle={styles.modalScrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              onScrollBeginDrag={closeOpenTimeAction}
             >
-              <View style={styles.modalBody}>
+              <View style={styles.modalBody} onTouchStart={closeOpenTimeAction}>
                 <View style={styles.exactTimeList}>
                   {Array.from(new Set([...settings.reminderTimes, ...(settings.reminderDisabledTimes || [])]))
                     .sort()
                     .map((time) => {
                       const isEnabled = settings.reminderTimes.includes(time);
                       return (
-                        <SoftPressable
+                        <ReanimatedSwipeable
                           key={time}
-                          onPress={() => openTimePicker('reminderTime', time, time)}
-                          style={({ pressed }) => [
-                            styles.exactTimeRow,
-                            pressed && styles.activityCardPressed,
-                          ]}
-                        >
-                          <View style={styles.exactTimeLeft}>
-                            <View style={styles.exactTimeDot} />
-                            <Text style={styles.exactTimeText}>{time}</Text>
-                          </View>
-                          <View onStartShouldSetResponder={() => true}>
-                            <CustomSwitch
-                              value={isEnabled}
-                              onValueChange={(val) => {
-                                if (val) {
-                                  const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
-                                  updateSettings({
-                                    reminderTimes: nextTimes,
-                                    reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
-                                  });
-                                } else {
-                                  updateSettings({
-                                    reminderTimes: settings.reminderTimes.filter(t => t !== time),
-                                    reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
-                                  });
-                                }
+                          friction={2.05}
+                          rightThreshold={40}
+                          overshootRight
+                          overshootFriction={7}
+                          animationOptions={{ damping: 16, stiffness: 135, mass: 0.62 }}
+                          containerStyle={styles.exactTimeSwipeContainer}
+                          onSwipeableOpen={(dir, sw) => handleTimeOpen(sw)}
+                          renderRightActions={(progress) => (
+                            <DeleteTimeAction
+                              progress={progress}
+                              onDelete={() => {
+                                closeOpenTimeAction();
+                                updateSettings({
+                                  reminderTimes: settings.reminderTimes.filter(t => t !== time),
+                                  reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
+                                });
                               }}
-                              trackActive={colors.primary}
-                              trackInactive={colors.surfaceMuted}
-                              thumbColor={colors.surface}
                             />
+                          )}
+                        >
+                          <View style={styles.exactTimeRow}>
+                            <SoftPressable
+                              onPress={() => {
+                                closeOpenTimeAction();
+                                openTimePicker('reminderTime', time, time);
+                              }}
+                              style={({ pressed }) => [
+                                styles.exactTimeLeft,
+                                pressed && styles.activityCardPressed,
+                              ]}
+                            >
+                              <View style={[styles.exactTimeDot, !isEnabled && styles.exactTimeDotDisabled]} />
+                              <Text style={[styles.exactTimeText, !isEnabled && styles.exactTimeTextDisabled]}>{time}</Text>
+                            </SoftPressable>
+                            <View onStartShouldSetResponder={() => true} style={styles.exactTimeRightWrap}>
+                              <CustomSwitch
+                                value={isEnabled}
+                                onValueChange={(val) => {
+                                  if (val) {
+                                    const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
+                                    updateSettings({
+                                      reminderTimes: nextTimes,
+                                      reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
+                                    });
+                                  } else {
+                                    updateSettings({
+                                      reminderTimes: settings.reminderTimes.filter(t => t !== time),
+                                      reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
+                                    });
+                                  }
+                                }}
+                                trackActive={colors.primary}
+                                trackInactive={colors.surfaceMuted}
+                                thumbColor={colors.surface}
+                              />
+                            </View>
                           </View>
-                        </SoftPressable>
+                        </ReanimatedSwipeable>
                       );
                   })}
                   <SoftPressable
@@ -2355,22 +2464,32 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingTop: layout.s(8),
     paddingBottom: layout.s(16),
   },
-  exactTimeRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingHorizontal: layout.s(16),
-    paddingVertical: layout.s(14),
+  exactTimeSwipeContainer: {
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.04)',
     borderRadius: Theme.radius.card,
-    backgroundColor: colors.surface,
     marginBottom: layout.s(8),
+    overflow: 'hidden',
+    backgroundColor: colors.dangerSoft,
+  },
+  exactTimeRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'stretch' as const,
+    justifyContent: 'space-between' as const,
+    backgroundColor: colors.surface,
   },
   exactTimeLeft: {
+    flex: 1,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: layout.s(14),
+    paddingHorizontal: layout.s(16),
+    paddingVertical: layout.s(14),
+  },
+  exactTimeRightWrap: {
+    justifyContent: 'center',
+    paddingRight: layout.s(16),
+    paddingLeft: layout.s(16),
   },
   exactTimeDot: {
     width: layout.s(6),
@@ -2378,10 +2497,39 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderRadius: layout.s(3),
     backgroundColor: colors.primary,
   },
+  exactTimeDotDisabled: {
+    backgroundColor: colors.textTertiary,
+  },
   exactTimeText: {
     fontSize: layout.s(16),
     fontFamily: Theme.fonts.regular,
     color: colors.text,
+  },
+  exactTimeTextDisabled: {
+    color: colors.textSecondary,
+  },
+  exactTimeDeleteWrap: {
+    width: 82,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+  },
+  exactTimeDeleteMotion: {
+    flex: 1,
+  },
+  exactTimeDeleteAction: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  exactTimeDeleteActionPressed: {
+    backgroundColor: colors.primaryPressed,
+  },
+  exactTimeDeleteText: {
+    color: colors.surface,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 12,
   },
   quietInlineRow: {
     flexDirection: 'row' as const,
