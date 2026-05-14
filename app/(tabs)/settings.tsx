@@ -2200,12 +2200,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    backgroundColor: colors.surface,
-    borderRadius: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     paddingVertical: layout.s(12),
-    paddingHorizontal: layout.s(14),
     gap: layout.s(12),
   },
   quietInlineLeft: {
