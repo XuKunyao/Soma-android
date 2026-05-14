@@ -42,6 +42,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  interpolateColor,
 } from 'react-native-reanimated';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
@@ -620,6 +621,55 @@ function createChipStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   });
 }
 
+interface CustomSwitchProps {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  trackActive: string;
+  trackInactive: string;
+  thumbColor: string;
+}
+
+const CustomSwitch: React.FC<CustomSwitchProps> = ({ value, onValueChange, trackActive, trackInactive, thumbColor }) => {
+  const animValue = useSharedValue(value ? 1 : 0);
+
+  React.useEffect(() => {
+    animValue.value = withTiming(value ? 1 : 0, { duration: 200, easing: Easing.out(Easing.quad) });
+  }, [value, animValue]);
+
+  const animatedTrackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(animValue.value, [0, 1], [trackInactive, trackActive]),
+  }));
+
+  const animatedThumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: animValue.value * 20 }], // 46 - 20(thumb width) - 6(padding 3*2) = 20
+  }));
+
+  return (
+    <Pressable onPress={() => onValueChange(!value)} hitSlop={8}>
+      <Animated.View style={[
+        {
+          width: 46,
+          height: 26,
+          borderRadius: 13,
+          justifyContent: 'center',
+          paddingHorizontal: 3,
+        },
+        animatedTrackStyle
+      ]}>
+        <Animated.View style={[
+          {
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            backgroundColor: thumbColor,
+          },
+          animatedThumbStyle
+        ]} />
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -690,7 +740,7 @@ export default function SettingsScreen() {
       exactTimeTitle: 'Exact reminder times',
       exactTimeDescription: 'Daily times for hydration reminders.',
       exactTimeEmpty: 'No exact times yet.',
-      addTime: 'Add',
+      addTime: 'Add time',
       reminderSettingsSave: 'Save settings',
       intervalInvalid: 'Use 5-720 minutes.',
       quietStart: 'From',
@@ -755,17 +805,17 @@ export default function SettingsScreen() {
       reminderTitle: '提醒通知',
       reminderDescription: '定期收到喝水提醒通知',
       quietTitle: '勿扰时间段',
-      quietDescription: '这个时间段不会收到喝水提醒。',
+      quietDescription: '这个时间段不会收到喝水提醒',
       reminderDetailTitle: '提醒设置',
       reminderDetailDescription: '具体时间优先，未设置时按间隔提醒',
       reminderEntryDescription: '设置具体时间、间隔和勿扰时段。',
       customIntervalTitle: '自定义间隔',
       customIntervalDescription: '默认显示当前选择的预设间隔。',
       customIntervalPlaceholder: '间隔',
-      exactTimeTitle: '具体提醒时间',
+      exactTimeTitle: '设置具体提醒时间',
       exactTimeDescription: '每天在这些时间提醒喝水。',
       exactTimeEmpty: '还没有设置具体时间。',
-      addTime: '添加',
+      addTime: '添加时间',
       reminderSettingsSave: '保存提醒设置',
       intervalInvalid: '请输入 5-720 分钟。',
       quietStart: '开始',
@@ -1158,7 +1208,7 @@ export default function SettingsScreen() {
             <Text style={styles.customTitle}>{copy.customCup}</Text>
           </View>
           <View style={styles.customControl}>
-            <View style={styles.customInputShell}>
+            <View style={styles.customCupInputShell}>
               <TextInput
                 value={customCupSize}
                 onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
@@ -1228,7 +1278,7 @@ export default function SettingsScreen() {
             <Text style={styles.customTitle}>{copy.customIntervalTitle}</Text>
           </View>
           <View style={styles.customControl}>
-            <View style={styles.customInputShell}>
+            <View style={styles.customIntervalInputShell}>
               <TextInput
                 value={customReminderIntervalInput}
                 onChangeText={(value) => setCustomReminderIntervalInput(
@@ -1342,10 +1392,11 @@ export default function SettingsScreen() {
               <Text style={styles.quietInlineDesc}>{copy.quietDescription}</Text>
             </View>
           </View>
-          <Switch
+          <CustomSwitch
             value={quietHoursEnabled}
             onValueChange={toggleQuietHours}
-            trackColor={{ false: colors.trackBackground, true: colors.primary }}
+            trackInactive={colors.trackBackground}
+            trackActive={colors.primary}
             thumbColor={colors.surface}
           />
         </View>
@@ -2156,13 +2207,12 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   quietInlineLeft: {
     flex: 1,
     flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    alignItems: 'stretch' as const,
     gap: layout.s(10),
   },
   quietInlineIcon: {
     width: 32,
-    height: 32,
-    borderRadius: Theme.radius.full,
+    borderRadius: 16,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
@@ -2277,8 +2327,19 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     alignItems: 'center',
     paddingHorizontal: layout.s(12),
   },
-  customInputShell: {
-    flex: 1,
+  customCupInputShell: {
+    width: layout.s(90),
+    minHeight: layout.s(42),
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: Theme.radius.input,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: layout.s(12),
+  },
+  customIntervalInputShell: {
+    width: layout.s(115),
     minHeight: layout.s(42),
     backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.input,
