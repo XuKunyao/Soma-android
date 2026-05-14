@@ -632,7 +632,9 @@ export default function SettingsScreen() {
   const [quietStartInput, setQuietStartInput] = React.useState(settings.reminderQuietStart);
   const [quietEndInput, setQuietEndInput] = React.useState(settings.reminderQuietEnd);
   const [customReminderIntervalInput, setCustomReminderIntervalInput] = React.useState(
-    deriveIntervalInput(settings.reminderInterval).value,
+    (BASE_INTERVALS.some(i => i.value === settings.reminderInterval) || !settings.reminderEnabled)
+      ? ''
+      : String(deriveIntervalInput(settings.reminderInterval).value)
   );
   const [customReminderIntervalUnit, setCustomReminderIntervalUnit] = React.useState<IntervalUnit>(
     deriveIntervalInput(settings.reminderInterval).unit,
@@ -885,7 +887,10 @@ export default function SettingsScreen() {
       kind: 'custom' as const,
     }
     : DEFAULT_CUSTOM_INTERVAL_OPTION;
-  const reminderIntervalOptions = [...BASE_INTERVALS, customIntervalOption];
+  const isIntervalPreset = BASE_INTERVALS.some(i => i.value === settings.reminderInterval) || !settings.reminderEnabled;
+  const reminderIntervalOptions = isIntervalPreset
+    ? BASE_INTERVALS
+    : [...BASE_INTERVALS, customIntervalOption];
   const parsedWeightKg = Number.parseFloat(weightKg);
   const isWeightValid = Number.isFinite(parsedWeightKg) && parsedWeightKg > 0;
   const selectedActivity = ACTIVITY_LEVELS.find((option) => option.value === activityLevel) ?? ACTIVITY_LEVELS[0];
@@ -1211,6 +1216,7 @@ export default function SettingsScreen() {
                       reminderInterval: interval.value,
                     });
                   }
+                  setCustomReminderIntervalInput('');
                 }}
               />
             );
@@ -1237,13 +1243,14 @@ export default function SettingsScreen() {
               <SoftPressable
                 onPress={toggleCustomReminderIntervalUnit}
                 style={({ pressed }) => [
-                  styles.intervalUnitButton,
+                  styles.intervalUnitInline,
                   pressed && styles.estimateButtonPressed,
                 ]}
               >
-                <Text style={styles.intervalUnitText}>
+                <Text style={styles.inputUnit}>
                   {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
                 </Text>
+                <Feather name="chevron-down" size={14} color={colors.textSecondary} style={{ marginTop: 1 }} />
               </SoftPressable>
             </View>
             <SoftPressable
@@ -2138,7 +2145,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     borderRadius: 15,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -2156,7 +2163,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     width: 32,
     height: 32,
     borderRadius: Theme.radius.full,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -2170,7 +2177,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     gap: layout.s(6),
   },
   quietInlineTimeButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Theme.radius.input,
     paddingHorizontal: layout.s(10),
     paddingVertical: layout.s(4),
@@ -2293,19 +2300,10 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontFamily: Theme.fonts.medium,
     fontSize: layout.body,
   },
-  intervalUnitButton: {
-    minHeight: layout.s(30),
-    minWidth: layout.s(52),
-    borderRadius: Theme.radius.full,
-    backgroundColor: colors.surfaceMuted,
+  intervalUnitInline: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: layout.s(10),
-  },
-  intervalUnitText: {
-    color: colors.primary,
-    fontFamily: Theme.fonts.medium,
-    fontSize: layout.s(12),
+    gap: layout.s(4),
   },
   timeSelectButton: {
     minWidth: layout.s(118),
