@@ -2,7 +2,7 @@
 
 <img src="assets/images/icon.png" width="128" height="128" style="border-radius: 24px;" alt="Soma" />
 
-# Soma · 喝水提醒助手
+# Soma · 喝水记录助手
 
 **温暖、安静、克制的饮水记录应用**
 
