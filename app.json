@@ -2,7 +2,7 @@
   "expo": {
     "name": "Soma",
     "slug": "soma",
-    "version": "1.0.4",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "soma",
@@ -13,7 +13,13 @@
     },
     "android": {
       "package": "com.xukunyao.soma",
-      "versionCode": 5,
+      "versionCode": 8,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#D97757",
         "foregroundImage": "./assets/images/android-adaptive-icon.png"
@@ -27,6 +33,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

@@ -197,12 +197,16 @@ export function WaterProvider({ children }: { children: ReactNode }) {
 
   // 设置变化时，保存设置并更新提醒
   useEffect(() => {
-    if (state.isLoaded) {
-      saveSettings(state.settings);
-      saveGoalForDate(state.dateKey, state.settings.dailyGoal);
-      // 更新提醒调度
+    if (!state.isLoaded) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void saveSettings(state.settings);
+      void saveGoalForDate(state.dateKey, state.settings.dailyGoal);
+
       if (state.settings.reminderEnabled) {
-        scheduleWaterReminder({
+        void scheduleWaterReminder({
           intervalMinutes: state.settings.reminderInterval,
           reminderTimes: state.settings.reminderTimes,
           language: state.settings.language,
@@ -210,9 +214,13 @@ export function WaterProvider({ children }: { children: ReactNode }) {
           quietEnd: state.settings.reminderQuietEnd,
         });
       } else {
-        cancelAllReminders();
+        void cancelAllReminders();
       }
-    }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+    };
   }, [state.settings, state.isLoaded]);
 
   /** 喝了一杯水 */

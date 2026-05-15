@@ -761,18 +761,10 @@ export default function SettingsScreen() {
   const [reminderTimeInput, setReminderTimeInput] = React.useState('');
   const [reminderTimesInput, setReminderTimesInput] = React.useState<string[]>(settings.reminderTimes);
   const [editingReminderTime, setEditingReminderTime] = React.useState<string | null>(null);
-  const openTimeActionRef = React.useRef<SwipeableMethods | null>(null);
 
   const closeOpenTimeAction = React.useCallback(() => {
-    openTimeActionRef.current?.close();
-    openTimeActionRef.current = null;
-  }, []);
-
-  const handleTimeOpen = React.useCallback((swipeable: SwipeableMethods | null) => {
-    if (openTimeActionRef.current && openTimeActionRef.current !== swipeable) {
-      openTimeActionRef.current.close();
-    }
-    openTimeActionRef.current = swipeable;
+    // Swipe rows close naturally after the gesture. The modal still calls this
+    // callback so we keep a harmless no-op hook here.
   }, []);
 
   const [timePickerTarget, setTimePickerTarget] = React.useState<TimePickerTarget | null>(null);
@@ -1051,7 +1043,6 @@ export default function SettingsScreen() {
   const exportDirectoryLabel = settings.exportDirectoryUri
     ? copy.exportPathSelected
     : copy.exportPathEmpty;
-
   const chooseExportDirectory = async () => {
     setExportStatus('');
 
@@ -1580,92 +1571,87 @@ export default function SettingsScreen() {
               </SoftPressable>
             </View>
             <ScrollView
-              style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
+              contentContainerStyle={[styles.modalScrollContent, styles.reminderModalContent]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              onScrollBeginDrag={closeOpenTimeAction}
             >
-              <View style={styles.modalBody} onTouchStart={closeOpenTimeAction}>
-                <View style={styles.exactTimeList}>
-                  {Array.from(new Set([...settings.reminderTimes, ...(settings.reminderDisabledTimes || [])]))
-                    .sort()
-                    .map((time) => {
-                      const isEnabled = settings.reminderTimes.includes(time);
-                      return (
-                        <ReanimatedSwipeable
-                          key={time}
-                          friction={2.05}
-                          rightThreshold={40}
-                          overshootRight
-                          overshootFriction={7}
-                          animationOptions={{ damping: 16, stiffness: 135, mass: 0.62 }}
-                          containerStyle={styles.exactTimeSwipeContainer}
-                          onSwipeableOpen={(dir, sw) => handleTimeOpen(sw)}
-                          renderRightActions={(progress) => (
-                            <DeleteTimeAction
-                              progress={progress}
-                              onDelete={() => {
-                                closeOpenTimeAction();
-                                updateSettings({
-                                  reminderTimes: settings.reminderTimes.filter(t => t !== time),
-                                  reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
-                                });
+              <View style={styles.exactTimeList}>
+                {Array.from(new Set([...settings.reminderTimes, ...(settings.reminderDisabledTimes || [])]))
+                  .sort()
+                  .map((time) => {
+                    const isEnabled = settings.reminderTimes.includes(time);
+                    return (
+                      <ReanimatedSwipeable
+                        key={time}
+                        friction={2.05}
+                        rightThreshold={40}
+                        overshootRight
+                        overshootFriction={7}
+                        animationOptions={{ damping: 16, stiffness: 135, mass: 0.62 }}
+                        containerStyle={styles.exactTimeSwipeContainer}
+                        renderRightActions={(progress) => (
+                          <DeleteTimeAction
+                            progress={progress}
+                            onDelete={() => {
+                              closeOpenTimeAction();
+                              updateSettings({
+                                reminderTimes: settings.reminderTimes.filter(t => t !== time),
+                                reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
+                              });
+                            }}
+                          />
+                        )}
+                      >
+                        <View style={styles.exactTimeRow}>
+                          <SoftPressable
+                            onPress={() => {
+                              closeOpenTimeAction();
+                              openTimePicker('reminderTime', time, time);
+                            }}
+                            style={({ pressed }) => [
+                              styles.exactTimeLeft,
+                              pressed && styles.activityCardPressed,
+                            ]}
+                          >
+                            <View style={[styles.exactTimeDot, !isEnabled && styles.exactTimeDotDisabled]} />
+                            <Text style={[styles.exactTimeText, !isEnabled && styles.exactTimeTextDisabled]}>{time}</Text>
+                          </SoftPressable>
+                          <View onStartShouldSetResponder={() => true} style={styles.exactTimeRightWrap}>
+                            <CustomSwitch
+                              value={isEnabled}
+                              onValueChange={(val) => {
+                                if (val) {
+                                  const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
+                                  updateSettings({
+                                    reminderTimes: nextTimes,
+                                    reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
+                                  });
+                                } else {
+                                  updateSettings({
+                                    reminderTimes: settings.reminderTimes.filter(t => t !== time),
+                                    reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
+                                  });
+                                }
                               }}
+                              trackActive={colors.primary}
+                              trackInactive={colors.surfaceMuted}
+                              thumbColor={colors.surface}
                             />
-                          )}
-                        >
-                          <View style={styles.exactTimeRow}>
-                            <SoftPressable
-                              onPress={() => {
-                                closeOpenTimeAction();
-                                openTimePicker('reminderTime', time, time);
-                              }}
-                              style={({ pressed }) => [
-                                styles.exactTimeLeft,
-                                pressed && styles.activityCardPressed,
-                              ]}
-                            >
-                              <View style={[styles.exactTimeDot, !isEnabled && styles.exactTimeDotDisabled]} />
-                              <Text style={[styles.exactTimeText, !isEnabled && styles.exactTimeTextDisabled]}>{time}</Text>
-                            </SoftPressable>
-                            <View onStartShouldSetResponder={() => true} style={styles.exactTimeRightWrap}>
-                              <CustomSwitch
-                                value={isEnabled}
-                                onValueChange={(val) => {
-                                  if (val) {
-                                    const nextTimes = normalizeReminderTimes([...settings.reminderTimes, time]);
-                                    updateSettings({
-                                      reminderTimes: nextTimes,
-                                      reminderDisabledTimes: (settings.reminderDisabledTimes || []).filter(t => t !== time),
-                                    });
-                                  } else {
-                                    updateSettings({
-                                      reminderTimes: settings.reminderTimes.filter(t => t !== time),
-                                      reminderDisabledTimes: Array.from(new Set([...(settings.reminderDisabledTimes || []), time])).sort(),
-                                    });
-                                  }
-                                }}
-                                trackActive={colors.primary}
-                                trackInactive={colors.surfaceMuted}
-                                thumbColor={colors.surface}
-                              />
-                            </View>
                           </View>
-                        </ReanimatedSwipeable>
-                      );
-                  })}
-                  <SoftPressable
-                    onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
-                    style={({ pressed }) => [
-                      styles.addTimeDashedButton,
-                      pressed && styles.estimateButtonPressed,
-                    ]}
-                  >
-                    <Feather name="plus" size={15} color={colors.primary} />
-                    <Text style={styles.addTimeDashedButtonText}>{copy.addTime}</Text>
-                  </SoftPressable>
-                </View>
+                        </View>
+                      </ReanimatedSwipeable>
+                    );
+                })}
+                <SoftPressable
+                  onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
+                  style={({ pressed }) => [
+                    styles.addTimeDashedButton,
+                    pressed && styles.estimateButtonPressed,
+                  ]}
+                >
+                  <Feather name="plus" size={15} color={colors.primary} />
+                  <Text style={styles.addTimeDashedButtonText}>{copy.addTime}</Text>
+                </SoftPressable>
               </View>
             </ScrollView>
           </Animated.View>
