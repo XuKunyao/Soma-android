@@ -8,15 +8,15 @@
 
 Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的记录和本地提醒，帮助你在日常节奏里照顾自己。
 
-[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-8B7CF6?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
-[![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=white)](https://reactnative.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white)](#download)
-[![Version](https://img.shields.io/badge/Version-1.0.4-D97757?style=flat-square)](#download)
-[![Theme](https://img.shields.io/badge/Theme-Light%20%2F%20Dark-A67C63?style=flat-square)](#design)
-[![Language](https://img.shields.io/badge/Language-ZH%20%2F%20EN-7A9A6D?style=flat-square)](#features)
-[![Storage](https://img.shields.io/badge/Data-Local%20Only-69A297?style=flat-square)](#features)
-[![License](https://img.shields.io/badge/License-MIT-E8E2D9?style=flat-square)](#license)
+[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-EF4444?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.81-F97316?style=flat-square&logo=react&logoColor=white)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-FACC15?style=flat-square&logo=typescript&logoColor=1A1612)](https://www.typescriptlang.org/)
+[![Android](https://img.shields.io/badge/Platform-Android-22C55E?style=flat-square&logo=android&logoColor=white)](#download)
+[![Version](https://img.shields.io/badge/Version-1.1.4-06B6D4?style=flat-square)](#download)
+[![Theme](https://img.shields.io/badge/Theme-Light%20%2F%20Dark-3B82F6?style=flat-square)](#design)
+[![Language](https://img.shields.io/badge/Language-ZH%20%2F%20EN-8B5CF6?style=flat-square)](#features)
+[![Storage](https://img.shields.io/badge/Data-Local%20Only-14B8A6?style=flat-square)](#features)
+[![License](https://img.shields.io/badge/License-MIT-EC4899?style=flat-square)](#license)
 
 </div>
 
@@ -42,7 +42,7 @@ Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的
 
 前往 [GitHub Releases](https://github.com/XuKunyao/Soma-android/releases) 页面下载最新版 APK，安装到 Android 设备即可使用。
 
-当前最新版本为 **v1.0.4**，支持 Android 设备。
+当前最新版本为 **v1.1.4**，支持 Android 设备。
 
 ## ✨ Features
 
@@ -50,7 +50,7 @@ Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的
 
 2、**一键记录：** 点击「喝了一杯」即可记录当前杯量，默认 250ml。你也可以在设置中自定义杯量大小或选择预设规格。今日记录支持左滑删除，饮水总量会同步更新。
 
-3、**历史统计：** 按日、周、月、年查看饮水汇总和趋势。数据展示以回顾节律为目的，帮助你了解自己的饮水习惯，而不是用数字施加压力。
+3、**历史统计：** 按日、周、月、年查看饮水汇总和趋势。日视图支持分时完成趋势，周、月、年视图使用更贴近日常语义的周期标签。数据展示以回顾节律为目的，帮助你了解自己的饮水习惯，而不是用数字施加压力。
 
 4、**智能目标估算：** 根据体重、性别参考、活动量和饮食习惯，为你生成个性化的每日饮水建议。算法参考《中国居民膳食指南（2022）》的日常饮水量范围，区分「喝水目标」和包含食物水分的「总水摄入」。估算结果仅适合作为健康成年人的日常参考，不替代医疗建议。
 
@@ -58,7 +58,9 @@ Soma 不把喝水变成焦虑的打卡任务。它用柔和的进度、轻量的
 
 6、**中英双语 & 深色模式：** 界面语言可在中文和英文之间自由切换。外观支持跟随系统的浅色和深色主题，深色模式采用暖灰色调而非纯黑，在夜间使用时温暖不刺眼。
 
-7、**隐私优先：** 所有饮水记录和设置数据都保存在设备本地，Soma 不收集任何用户信息，不上传任何数据到服务器。
+7、**数据备份与导入：** 可以选择本地备份位置，导出 Soma JSON 备份，也可以从同一位置导入最新备份。备份功能适合换机、手动归档或在大版本更新前留一份保险。
+
+8、**隐私优先：** 所有饮水记录和设置数据都保存在设备本地，Soma 不收集任何用户信息，不上传任何数据到服务器。
 
 ## 🎨 Design
 
@@ -99,7 +101,7 @@ app/
     _layout.tsx              # 底部 Tab 导航配置
     index.tsx                # 首页：进度环、快速记录、今日饮水列表
     history.tsx              # 历史：日 / 周 / 月 / 年统计与趋势
-    settings.tsx             # 设置：目标估算、杯量、提醒间隔、勿扰、语言、外观
+    settings.tsx             # 设置：目标估算、杯量、提醒、系统设置分类、备份与更新
 components/
   GreetingHeader.tsx         # 基于时间段的问候语
   WaterProgress.tsx          # SVG 圆形饮水进度组件
@@ -138,7 +140,8 @@ npx expo start
 - [ ] 空状态与场景插图补充
 - [ ] 饮水成就与里程碑系统
 - [ ] Widget 桌面小组件
-- [ ] 数据导出与备份
+- [x] 数据导出与备份
+- [x] 系统设置分类与检查更新
 
 ## License
 

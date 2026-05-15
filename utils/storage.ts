@@ -35,6 +35,19 @@ export interface WaterSettings {
   exportDirectoryUri?: string;
 }
 
+export interface WaterDataExport {
+  app: string;
+  schemaVersion: number;
+  exportedAt: string;
+  data: Record<string, unknown>;
+}
+
+export interface WaterDataImportResult {
+  logDays: number;
+  goalDays: number;
+  hasSettings: boolean;
+}
+
 export const DEFAULT_SETTINGS: WaterSettings = {
   dailyGoal: 2000,
   cupSize: 250,
@@ -52,6 +65,8 @@ export const DEFAULT_SETTINGS: WaterSettings = {
 
 const WATER_LOG_PREFIX = 'water_logs_';
 const WATER_GOAL_PREFIX = 'water_goal_';
+const SETTINGS_KEY = 'water_settings';
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function getTodayKey(): string {
   const now = new Date();
@@ -118,15 +133,59 @@ export async function loadWaterHistory(fallbackGoal = DEFAULT_SETTINGS.dailyGoal
   return records.filter((record) => record.logs.length > 0);
 }
 
-export async function buildWaterDataExport(): Promise<{
-  app: string;
-  schemaVersion: number;
-  exportedAt: string;
-  data: Record<string, unknown>;
-}> {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isValidWaterLog(value: unknown): value is WaterLog {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return typeof value.id === 'string'
+    && typeof value.amount === 'number'
+    && Number.isFinite(value.amount)
+    && value.amount > 0
+    && typeof value.timestamp === 'number'
+    && Number.isFinite(value.timestamp);
+}
+
+function normalizeExportedSettings(value: unknown, currentSettings: WaterSettings): WaterSettings | null {
+  if (!isPlainObject(value)) {
+    return null;
+  }
+
+  const merged = { ...DEFAULT_SETTINGS, ...value };
+
+  return {
+    ...merged,
+    dailyGoal: Number.isFinite(merged.dailyGoal) ? Number(merged.dailyGoal) : DEFAULT_SETTINGS.dailyGoal,
+    cupSize: Number.isFinite(merged.cupSize) ? Number(merged.cupSize) : DEFAULT_SETTINGS.cupSize,
+    reminderInterval: Number.isFinite(merged.reminderInterval) ? Number(merged.reminderInterval) : DEFAULT_SETTINGS.reminderInterval,
+    reminderCustomInterval: Number.isFinite(merged.reminderCustomInterval) ? Number(merged.reminderCustomInterval) : DEFAULT_SETTINGS.reminderCustomInterval,
+    reminderTimes: Array.isArray(merged.reminderTimes) ? merged.reminderTimes.filter((item) => typeof item === 'string') : [],
+    reminderDisabledTimes: Array.isArray(merged.reminderDisabledTimes) ? merged.reminderDisabledTimes.filter((item) => typeof item === 'string') : [],
+    reminderEnabled: typeof merged.reminderEnabled === 'boolean' ? merged.reminderEnabled : DEFAULT_SETTINGS.reminderEnabled,
+    reminderQuietStart: typeof merged.reminderQuietStart === 'string' ? merged.reminderQuietStart : DEFAULT_SETTINGS.reminderQuietStart,
+    reminderQuietEnd: typeof merged.reminderQuietEnd === 'string' ? merged.reminderQuietEnd : DEFAULT_SETTINGS.reminderQuietEnd,
+    language: merged.language === 'en' ? 'en' : 'zh',
+    appearance: merged.appearance === 'light' || merged.appearance === 'dark' ? merged.appearance : 'system',
+    exportDirectoryUri: currentSettings.exportDirectoryUri ?? '',
+  };
+}
+
+function normalizeExportPayload(payload: unknown): WaterDataExport {
+  if (!isPlainObject(payload) || payload.app !== 'Soma' || payload.schemaVersion !== 1 || !isPlainObject(payload.data)) {
+    throw new Error('Invalid Soma backup file');
+  }
+
+  return payload as unknown as WaterDataExport;
+}
+
+export async function buildWaterDataExport(): Promise<WaterDataExport> {
   const keys = await AsyncStorage.getAllKeys();
   const exportKeys = keys.filter((key) => (
-    key === 'water_settings' ||
+    key === SETTINGS_KEY ||
     key.startsWith(WATER_LOG_PREFIX) ||
     key.startsWith(WATER_GOAL_PREFIX)
   ));
@@ -155,13 +214,60 @@ export async function buildWaterDataExport(): Promise<{
 }
 
 export async function saveSettings(settings: WaterSettings): Promise<void> {
-  await AsyncStorage.setItem('water_settings', JSON.stringify(settings));
+  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
 export async function loadSettings(): Promise<WaterSettings> {
-  const data = await AsyncStorage.getItem('water_settings');
+  const data = await AsyncStorage.getItem(SETTINGS_KEY);
   if (data) {
     return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
   }
   return DEFAULT_SETTINGS;
+}
+
+export async function importWaterDataExport(payload: unknown): Promise<WaterDataImportResult> {
+  const backup = normalizeExportPayload(payload);
+  const currentSettings = await loadSettings();
+  const entries: [string, string][] = [];
+  let logDays = 0;
+  let goalDays = 0;
+  let hasSettings = false;
+
+  Object.entries(backup.data).forEach(([key, value]) => {
+    if (key === SETTINGS_KEY) {
+      const settings = normalizeExportedSettings(value, currentSettings);
+      if (settings) {
+        entries.push([SETTINGS_KEY, JSON.stringify(settings)]);
+        hasSettings = true;
+      }
+      return;
+    }
+
+    if (key.startsWith(WATER_LOG_PREFIX)) {
+      const dateKey = key.replace(WATER_LOG_PREFIX, '');
+      if (DATE_KEY_PATTERN.test(dateKey) && Array.isArray(value) && value.every(isValidWaterLog)) {
+        const sortedLogs = [...value].sort((a, b) => b.timestamp - a.timestamp);
+        entries.push([key, JSON.stringify(sortedLogs)]);
+        logDays += 1;
+      }
+      return;
+    }
+
+    if (key.startsWith(WATER_GOAL_PREFIX)) {
+      const dateKey = key.replace(WATER_GOAL_PREFIX, '');
+      const goal = typeof value === 'number' ? value : Number(value);
+      if (DATE_KEY_PATTERN.test(dateKey) && Number.isFinite(goal) && goal > 0) {
+        entries.push([key, JSON.stringify(goal)]);
+        goalDays += 1;
+      }
+    }
+  });
+
+  if (entries.length === 0) {
+    throw new Error('No importable Soma data');
+  }
+
+  await AsyncStorage.multiSet(entries);
+
+  return { logDays, goalDays, hasSettings };
 }

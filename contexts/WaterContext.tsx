@@ -13,7 +13,7 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AppState } from 'react-native';
+import { AppState, InteractionManager } from 'react-native';
 import {
   WaterLog,
   WaterSettings,
@@ -129,6 +129,7 @@ interface WaterContextType {
   addWater: (amount?: number) => void;
   deleteLog: (id: string) => void;
   updateSettings: (settings: Partial<WaterSettings>) => void;
+  reloadData: () => Promise<void>;
 }
 
 const WaterContext = createContext<WaterContextType | undefined>(undefined);
@@ -143,6 +144,15 @@ const WaterContext = createContext<WaterContextType | undefined>(undefined);
 export function WaterProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(waterReducer, initialState);
 
+  const reloadData = React.useCallback(async () => {
+    const dateKey = getTodayKey();
+    const [settings, logs] = await Promise.all([
+      loadSettings(),
+      loadLogsForDate(dateKey),
+    ]);
+    dispatch({ type: 'LOAD_DATA', settings, logs, dateKey });
+  }, []);
+
   const refreshTodayLogs = React.useCallback(async () => {
     const dateKey = getTodayKey();
     const logs = await loadLogsForDate(dateKey);
@@ -151,16 +161,8 @@ export function WaterProvider({ children }: { children: ReactNode }) {
 
   // App 启动时加载数据
   useEffect(() => {
-    async function loadData() {
-      const dateKey = getTodayKey();
-      const [settings, logs] = await Promise.all([
-        loadSettings(),
-        loadLogsForDate(dateKey),
-      ]);
-      dispatch({ type: 'LOAD_DATA', settings, logs, dateKey });
-    }
-    loadData();
-  }, []);
+    reloadData();
+  }, [reloadData]);
 
   // 饮水记录变化时，自动保存到本地存储
   useEffect(() => {
@@ -195,7 +197,7 @@ export function WaterProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshTodayLogs, state.dateKey, state.isLoaded]);
 
-  // 设置变化时，保存设置并更新提醒
+  // 设置变化时，保存设置。提醒调度单独处理，避免普通设置点击也触发通知系统。
   useEffect(() => {
     if (!state.isLoaded) {
       return;
@@ -204,24 +206,49 @@ export function WaterProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(() => {
       void saveSettings(state.settings);
       void saveGoalForDate(state.dateKey, state.settings.dailyGoal);
-
-      if (state.settings.reminderEnabled) {
-        void scheduleWaterReminder({
-          intervalMinutes: state.settings.reminderInterval,
-          reminderTimes: state.settings.reminderTimes,
-          language: state.settings.language,
-          quietStart: state.settings.reminderQuietStart,
-          quietEnd: state.settings.reminderQuietEnd,
-        });
-      } else {
-        void cancelAllReminders();
-      }
     }, 350);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [state.settings, state.isLoaded]);
+  }, [state.settings, state.dateKey, state.isLoaded]);
+
+  // 只有提醒相关配置变化时才更新系统提醒，降低设置页点击时的偶发卡顿。
+  useEffect(() => {
+    if (!state.isLoaded) {
+      return;
+    }
+
+    let interactionTask: { cancel: () => void } | undefined;
+    const timer = setTimeout(() => {
+      interactionTask = InteractionManager.runAfterInteractions(() => {
+        if (state.settings.reminderEnabled) {
+          void scheduleWaterReminder({
+            intervalMinutes: state.settings.reminderInterval,
+            reminderTimes: state.settings.reminderTimes,
+            language: state.settings.language,
+            quietStart: state.settings.reminderQuietStart,
+            quietEnd: state.settings.reminderQuietEnd,
+          });
+        } else {
+          void cancelAllReminders();
+        }
+      });
+    }, 700);
+
+    return () => {
+      clearTimeout(timer);
+      interactionTask?.cancel();
+    };
+  }, [
+    state.isLoaded,
+    state.settings.language,
+    state.settings.reminderEnabled,
+    state.settings.reminderInterval,
+    state.settings.reminderQuietEnd,
+    state.settings.reminderQuietStart,
+    state.settings.reminderTimes,
+  ]);
 
   /** 喝了一杯水 */
   const addWater = (amount?: number) => {
@@ -243,7 +270,7 @@ export function WaterProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <WaterContext.Provider value={{ state, addWater, deleteLog, updateSettings }}>
+    <WaterContext.Provider value={{ state, addWater, deleteLog, updateSettings, reloadData }}>
       {children}
     </WaterContext.Provider>
   );

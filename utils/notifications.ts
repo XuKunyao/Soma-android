@@ -233,12 +233,7 @@ export async function requestPermissions(): Promise<boolean> {
  * 注册为“每天重复”的系统通知，例如 08:00、09:00……21:00。
  */
 export async function scheduleWaterReminder(options: ReminderScheduleOptions): Promise<void> {
-  const Notifications = await getNotifications();
   const canUseNativeAndroidScheduler = Platform.OS === 'android' && !!nativeReminderModule?.schedule;
-
-  if (!Notifications && !canUseNativeAndroidScheduler) {
-    return;
-  }
 
   const {
     intervalMinutes,
@@ -249,8 +244,6 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
   } = options;
 
   if (canUseNativeAndroidScheduler) {
-    await Notifications?.cancelAllScheduledNotificationsAsync();
-    await Notifications?.dismissAllNotificationsAsync();
     await nativeReminderModule.schedule?.(JSON.stringify({
       intervalMinutes,
       reminderTimes: specificReminderTimes ?? [],
@@ -261,6 +254,7 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
     return;
   }
 
+  const Notifications = await getNotifications();
   if (!Notifications) {
     return;
   }

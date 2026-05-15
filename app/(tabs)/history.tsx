@@ -32,6 +32,7 @@ interface TrendPoint {
   label: string;
   total: number;
   goal: number;
+  showLabel?: boolean;
 }
 
 interface PeriodData {
@@ -79,6 +80,43 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
 
+function addMonths(date: Date, months: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function addYears(date: Date, years: number): Date {
+  return new Date(date.getFullYear() + years, 0, 1);
+}
+
+function startOfWeek(date: Date): Date {
+  const day = date.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  return addDays(date, offset);
+}
+
+function endOfWeek(date: Date): Date {
+  return addDays(startOfWeek(date), 6);
+}
+
+function samePeriodOrAfterToday(mode: PeriodMode, anchorDate: Date): boolean {
+  const today = parseDateKey(getTodayKey());
+
+  if (mode === 'day') {
+    return toDateKey(anchorDate) >= toDateKey(today);
+  }
+
+  if (mode === 'week') {
+    return startOfWeek(anchorDate).getTime() >= startOfWeek(today).getTime();
+  }
+
+  if (mode === 'month') {
+    return anchorDate.getFullYear() > today.getFullYear()
+      || (anchorDate.getFullYear() === today.getFullYear() && anchorDate.getMonth() >= today.getMonth());
+  }
+
+  return anchorDate.getFullYear() >= today.getFullYear();
+}
+
 function formatDayLabel(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
@@ -91,11 +129,73 @@ function formatFullDayLabel(date: Date, language: LanguagePreference): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+function formatMonthLabel(date: Date, language: LanguagePreference): string {
+  if (language === 'zh') {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+  }
+
+  return new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: 'long',
+  }).format(date);
+}
+
+function formatCompactMonthLabel(date: Date, language: LanguagePreference): string {
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short' }).format(date);
+  }
+
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+}
+
 function formatDateRange(startDate: Date, endDate: Date, language: LanguagePreference): string {
   const start = formatFullDayLabel(startDate, language);
   const end = formatFullDayLabel(endDate, language);
 
   return start === end ? start : `${start} - ${end}`;
+}
+
+function formatMonthRange(startDate: Date, endDate: Date, language: LanguagePreference): string {
+  const start = formatCompactMonthLabel(startDate, language);
+  const end = formatCompactMonthLabel(endDate, language);
+
+  return start === end ? start : `${start} - ${end}`;
+}
+
+function formatTimeLabel(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function formatLogTimeRange(record: WaterDayRecord | undefined, language: LanguagePreference): string {
+  if (!record || record.logs.length === 0) {
+    return language === 'en' ? 'No records yet' : '暂无饮水记录';
+  }
+
+  const timestamps = record.logs.map((log) => log.timestamp);
+  const firstTime = new Date(Math.min(...timestamps));
+  const lastTime = new Date(Math.max(...timestamps));
+
+  return `${formatTimeLabel(firstTime)} - ${formatTimeLabel(lastTime)}`;
+}
+
+function formatWeekOfMonthLabel(date: Date, language: LanguagePreference): string {
+  const weekNumber = Math.floor((date.getDate() - 1) / 7) + 1;
+
+  if (language === 'en') {
+    return `${new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date)} week ${weekNumber}`;
+  }
+
+  return `${date.getMonth() + 1}月第${weekNumber}周`;
+}
+
+function formatYearLabel(date: Date, language: LanguagePreference): string {
+  if (language === 'en') {
+    return `${date.getFullYear()}`;
+  }
+
+  return `${date.getFullYear()}年`;
 }
 
 function formatDiff(value: number, language: LanguagePreference): string {
@@ -116,22 +216,29 @@ function sumPoints(points: TrendPoint[]) {
   return { total, goal, diff: total - goal };
 }
 
-function getRecentDates(count: number): Date[] {
-  const today = parseDateKey(getTodayKey());
-  return Array.from({ length: count }, (_, index) => addDays(today, index - count + 1));
+function getDatesInRange(startDate: Date, endDate: Date): Date[] {
+  const days = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
+  return Array.from({ length: days }, (_, index) => addDays(startDate, index));
 }
 
-function getMonthDates(): Date[] {
+function getMonthDates(anchorDate: Date): Date[] {
   const today = parseDateKey(getTodayKey());
-  return Array.from({ length: today.getDate() }, (_, index) => (
-    new Date(today.getFullYear(), today.getMonth(), index + 1)
+  const isCurrentMonth = anchorDate.getFullYear() === today.getFullYear()
+    && anchorDate.getMonth() === today.getMonth();
+  const dayCount = isCurrentMonth
+    ? today.getDate()
+    : new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 0).getDate();
+  return Array.from({ length: dayCount }, (_, index) => (
+    new Date(anchorDate.getFullYear(), anchorDate.getMonth(), index + 1)
   ));
 }
 
-function getYearMonths(): Date[] {
+function getYearMonths(anchorDate: Date): Date[] {
   const today = parseDateKey(getTodayKey());
-  return Array.from({ length: today.getMonth() + 1 }, (_, index) => (
-    new Date(today.getFullYear(), index, 1)
+  const monthCount = anchorDate.getFullYear() === today.getFullYear() ? today.getMonth() + 1 : 12;
+
+  return Array.from({ length: monthCount }, (_, index) => (
+    new Date(anchorDate.getFullYear(), index, 1)
   ));
 }
 
@@ -148,8 +255,28 @@ function buildDayPoints(dates: Date[], recordMap: Map<string, WaterDayRecord>, f
   });
 }
 
-function buildCurrentMonthWeekPoints(recordMap: Map<string, WaterDayRecord>, fallbackGoal: number): TrendPoint[] {
-  const dayPoints = buildDayPoints(getMonthDates(), recordMap, fallbackGoal);
+function buildHourlyPoints(record: WaterDayRecord | undefined, fallbackGoal: number): TrendPoint[] {
+  const hourlyTotals = Array.from({ length: 12 }, () => 0);
+
+  record?.logs.forEach((log) => {
+    const hour = new Date(log.timestamp).getHours();
+    hourlyTotals[Math.floor(hour / 2)] += log.amount;
+  });
+
+  return hourlyTotals.map((total, index) => {
+    const startHour = index * 2;
+    return {
+      key: `hour-${startHour}`,
+      label: startHour % 4 === 2 ? `${startHour}` : '',
+      total,
+      goal: Math.round((record?.goal ?? fallbackGoal) / 12),
+      showLabel: startHour % 4 === 2,
+    };
+  });
+}
+
+function buildMonthWeekPoints(anchorDate: Date, recordMap: Map<string, WaterDayRecord>, fallbackGoal: number): TrendPoint[] {
+  const dayPoints = buildDayPoints(getMonthDates(anchorDate), recordMap, fallbackGoal);
   const weekPoints: TrendPoint[] = [];
 
   for (let index = 0; index < dayPoints.length; index += 7) {
@@ -168,19 +295,21 @@ function buildCurrentMonthWeekPoints(recordMap: Map<string, WaterDayRecord>, fal
   return weekPoints;
 }
 
-function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number, language: LanguagePreference): TrendPoint[] {
-  const months = getYearMonths();
+function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number, language: LanguagePreference, anchorDate: Date): TrendPoint[] {
+  const months = getYearMonths(anchorDate);
 
   return months.map((date) => {
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     const monthRecords = records.filter((record) => record.dateKey.startsWith(monthKey));
     const total = monthRecords.reduce((sum, record) => sum + record.total, 0);
-    const dayCount = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    const elapsedDays = date.getMonth() === parseDateKey(getTodayKey()).getMonth()
-      ? parseDateKey(getTodayKey()).getDate()
-      : dayCount;
+    const today = parseDateKey(getTodayKey());
+    const isCurrentMonth = date.getFullYear() === today.getFullYear()
+      && date.getMonth() === today.getMonth();
+    const dayCount = isCurrentMonth
+      ? today.getDate()
+      : new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     const savedGoal = monthRecords.reduce((sum, record) => sum + record.goal, 0);
-    const missingGoal = Math.max(0, elapsedDays - monthRecords.length) * fallbackGoal;
+    const missingGoal = Math.max(0, dayCount - monthRecords.length) * fallbackGoal;
 
     return {
       key: monthKey,
@@ -191,57 +320,72 @@ function buildMonthPoints(records: WaterDayRecord[], fallbackGoal: number, langu
   });
 }
 
-function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number, language: LanguagePreference): PeriodData {
+function buildPeriod(mode: PeriodMode, records: WaterDayRecord[], fallbackGoal: number, language: LanguagePreference, anchorDate: Date): PeriodData {
   const recordMap = new Map(records.map((record) => [record.dateKey, record]));
-  const today = parseDateKey(getTodayKey());
-  const recentDates = getRecentDates(7);
-  const recentRange = formatDateRange(recentDates[0], recentDates[recentDates.length - 1], language);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const yearStart = new Date(today.getFullYear(), 0, 1);
-  const monthWeekPoints = buildCurrentMonthWeekPoints(recordMap, fallbackGoal);
 
   if (mode === 'day') {
-    const points = buildDayPoints(recentDates, recordMap, fallbackGoal);
-    const today = points[points.length - 1];
+    const dateKey = toDateKey(anchorDate);
+    const record = recordMap.get(dateKey);
+    const points = buildHourlyPoints(record, fallbackGoal);
+    const dayPoint = {
+      key: dateKey,
+      label: formatDayLabel(anchorDate),
+      total: record?.total ?? 0,
+      goal: record?.goal ?? fallbackGoal,
+    };
     return {
-      title: language === 'en' ? 'Today' : '今日概览',
-      rangeLabel: `${formatFullDayLabel(parseDateKey(getTodayKey()), language)} 00:00-23:59`,
-      trendTitle: language === 'en' ? 'Last 7 days' : '近 7 天趋势',
-      trendRangeLabel: recentRange,
+      title: samePeriodOrAfterToday('day', anchorDate) ? (language === 'en' ? 'Today' : '今日概览') : (language === 'en' ? 'Daily record' : '每日记录'),
+      rangeLabel: `${formatFullDayLabel(anchorDate, language)} 00:00-23:59`,
+      trendTitle: language === 'en' ? 'Hourly trend' : '分时完成趋势',
+      trendRangeLabel: formatLogTimeRange(record, language),
       points,
-      summary: sumPoints([today]),
+      summary: sumPoints([dayPoint]),
     };
   }
 
   if (mode === 'week') {
-    const points = buildDayPoints(recentDates, recordMap, fallbackGoal);
+    const weekStart = startOfWeek(anchorDate);
+    const weekEnd = endOfWeek(anchorDate);
+    const points = buildDayPoints(getDatesInRange(weekStart, weekEnd), recordMap, fallbackGoal);
     return {
-      title: language === 'en' ? 'Last 7 days' : '近 7 天',
-      rangeLabel: recentRange,
+      title: samePeriodOrAfterToday('week', anchorDate) ? (language === 'en' ? 'This week' : '本周汇总') : (language === 'en' ? 'Weekly record' : '每周记录'),
+      rangeLabel: formatDateRange(weekStart, weekEnd, language),
       trendTitle: language === 'en' ? 'Daily trend' : '每日完成趋势',
-      trendRangeLabel: recentRange,
+      trendRangeLabel: formatWeekOfMonthLabel(anchorDate, language),
       points,
       summary: sumPoints(points),
     };
   }
 
   if (mode === 'month') {
+    const today = parseDateKey(getTodayKey());
+    const isCurrentMonth = anchorDate.getFullYear() === today.getFullYear()
+      && anchorDate.getMonth() === today.getMonth();
+    const monthStart = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
+    const monthEnd = isCurrentMonth ? today : new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 0);
+    const monthWeekPoints = buildMonthWeekPoints(anchorDate, recordMap, fallbackGoal);
     return {
-      title: language === 'en' ? 'This month' : '本月汇总',
-      rangeLabel: formatDateRange(monthStart, today, language),
-      trendTitle: language === 'en' ? 'Weekly trend this month' : '本月每周的趋势',
-      trendRangeLabel: formatDateRange(monthStart, today, language),
+      title: samePeriodOrAfterToday('month', anchorDate) ? (language === 'en' ? 'This month' : '本月汇总') : (language === 'en' ? 'Monthly record' : '每月记录'),
+      rangeLabel: formatDateRange(monthStart, monthEnd, language),
+      trendTitle: language === 'en' ? 'Weekly trend' : '每周完成趋势',
+      trendRangeLabel: formatMonthLabel(anchorDate, language),
       points: monthWeekPoints,
       summary: sumPoints(monthWeekPoints),
     };
   }
 
-  const points = buildMonthPoints(records, fallbackGoal, language);
+  const yearStart = new Date(anchorDate.getFullYear(), 0, 1);
+  const today = parseDateKey(getTodayKey());
+  const yearEnd = anchorDate.getFullYear() === today.getFullYear()
+    ? today
+    : new Date(anchorDate.getFullYear(), 11, 31);
+  const yearEndMonth = new Date(yearEnd.getFullYear(), yearEnd.getMonth(), 1);
+  const points = buildMonthPoints(records, fallbackGoal, language, anchorDate);
   return {
-    title: language === 'en' ? 'This year' : '今年汇总',
-    rangeLabel: formatDateRange(yearStart, today, language),
+    title: samePeriodOrAfterToday('year', anchorDate) ? (language === 'en' ? 'This year' : '今年汇总') : (language === 'en' ? 'Yearly record' : '每年记录'),
+    rangeLabel: formatMonthRange(yearStart, yearEndMonth, language),
     trendTitle: language === 'en' ? 'Monthly trend' : '每月完成趋势',
-    trendRangeLabel: formatDateRange(yearStart, today, language),
+    trendRangeLabel: formatYearLabel(anchorDate, language),
     points,
     summary: sumPoints(points),
   };
@@ -262,10 +406,11 @@ export default function HistoryScreen() {
   const { state } = useWater();
   const language = state.settings.language;
   const copy = language === 'en'
-    ? { title: 'Records', subtitle: 'See the rhythm of how you care for yourself', goal: 'Goal', completion: 'Completion', dailyAverage: 'Daily avg', completedDays: 'Days met', emptyTrend: 'Trends will appear after you start recording', recent: 'Recent records', allDay: 'All day · 00:00-23:59', entries: 'records', emptyHistory: 'No history yet' }
-    : { title: '记录', subtitle: '看看身体被照顾的节律', goal: '目标', completion: '完成率', dailyAverage: '日均 ml', completedDays: '达标天数', emptyTrend: '开始记录后，这里会生成趋势', recent: '最近记录', allDay: '全天 · 00:00-23:59', entries: '次记录', emptyHistory: '还没有历史记录' };
+    ? { title: 'Records', subtitle: 'See the rhythm of how you care for yourself', goal: 'Goal', completion: 'Completion', dailyAverage: 'Daily avg', completedDays: 'Days met', emptyTrend: 'Trends will appear after you start recording', recent: 'Records in this period', allDay: 'All day · 00:00-23:59', entries: 'records', emptyHistory: 'No records in this period', previous: 'Previous', next: 'Next' }
+    : { title: '记录', subtitle: '看看身体被照顾的节律', goal: '目标', completion: '完成率', dailyAverage: '日均 ml', completedDays: '达标天数', emptyTrend: '开始记录后，这里会生成趋势', recent: '当前周期记录', allDay: '全天 · 00:00-23:59', entries: '次记录', emptyHistory: '这个周期还没有记录', previous: '上一段', next: '下一段' };
   const periods = React.useMemo(() => getPeriods(language), [language]);
   const [mode, setMode] = React.useState<PeriodMode>('week');
+  const [anchorDate, setAnchorDate] = React.useState(() => parseDateKey(getTodayKey()));
   const [records, setRecords] = React.useState<WaterDayRecord[]>([]);
 
   const refreshHistory = React.useCallback(async () => {
@@ -301,18 +446,54 @@ export default function HistoryScreen() {
   }, [records, state.dateKey, state.settings.dailyGoal, state.todayLogs, state.todayTotal]);
 
   const period = React.useMemo(
-    () => buildPeriod(mode, recordsForView, state.settings.dailyGoal, language),
-    [language, mode, recordsForView, state.settings.dailyGoal],
+    () => buildPeriod(mode, recordsForView, state.settings.dailyGoal, language, anchorDate),
+    [anchorDate, language, mode, recordsForView, state.settings.dailyGoal],
   );
   const maxValue = Math.max(
     1,
     ...period.points.map((point) => Math.max(point.total, point.goal)),
   );
-  const average = period.points.length > 0
-    ? Math.round(period.summary.total / period.points.length)
-    : 0;
-  const completedDays = period.points.filter((point) => point.total >= point.goal && point.total > 0).length;
-  const recentRecords = recordsForView.slice(0, 7);
+  const dayCountForAverage = mode === 'day' ? 1 : period.points.length;
+  const average = dayCountForAverage > 0 ? Math.round(period.summary.total / dayCountForAverage) : 0;
+  const completedDays = mode === 'day'
+    ? (period.summary.total >= period.summary.goal && period.summary.total > 0 ? 1 : 0)
+    : period.points.filter((point) => point.total >= point.goal && point.total > 0).length;
+  const periodRecords = React.useMemo(() => {
+    if (mode === 'day') {
+      return recordsForView.filter((record) => record.dateKey === toDateKey(anchorDate));
+    }
+
+    if (mode === 'week') {
+      const startKey = toDateKey(startOfWeek(anchorDate));
+      const endKey = toDateKey(endOfWeek(anchorDate));
+      return recordsForView.filter((record) => record.dateKey >= startKey && record.dateKey <= endKey);
+    }
+
+    if (mode === 'month') {
+      const monthKey = `${anchorDate.getFullYear()}-${String(anchorDate.getMonth() + 1).padStart(2, '0')}`;
+      return recordsForView.filter((record) => record.dateKey.startsWith(monthKey));
+    }
+
+    return recordsForView.filter((record) => record.dateKey.startsWith(`${anchorDate.getFullYear()}-`));
+  }, [anchorDate, mode, recordsForView]);
+  const canGoNext = !samePeriodOrAfterToday(mode, anchorDate);
+  const movePeriod = React.useCallback((direction: -1 | 1) => {
+    setAnchorDate((current) => {
+      if (mode === 'day') {
+        return addDays(current, direction);
+      }
+
+      if (mode === 'week') {
+        return addDays(current, direction * 7);
+      }
+
+      if (mode === 'month') {
+        return addMonths(current, direction);
+      }
+
+      return addYears(current, direction);
+    });
+  }, [mode]);
 
   return (
     <ScrollView
@@ -347,6 +528,35 @@ export default function HistoryScreen() {
             </Pressable>
           );
         })}
+      </View>
+
+      <View style={styles.periodNavigator}>
+        <Pressable
+          accessibilityLabel={copy.previous}
+          onPress={() => movePeriod(-1)}
+          style={({ pressed }) => [
+            styles.periodNavButton,
+            pressed && styles.segmentButtonPressed,
+          ]}
+        >
+          <Feather name="chevron-left" size={18} color={colors.primary} />
+        </Pressable>
+        <View style={styles.periodNavigatorCenter}>
+          <Feather name="calendar" size={14} color={colors.textSecondary} />
+          <Text style={styles.periodNavigatorText}>{period.rangeLabel}</Text>
+        </View>
+        <Pressable
+          accessibilityLabel={copy.next}
+          disabled={!canGoNext}
+          onPress={() => movePeriod(1)}
+          style={({ pressed }) => [
+            styles.periodNavButton,
+            !canGoNext && styles.periodNavButtonDisabled,
+            pressed && canGoNext && styles.segmentButtonPressed,
+          ]}
+        >
+          <Feather name="chevron-right" size={18} color={canGoNext ? colors.primary : colors.textSecondary} />
+        </Pressable>
       </View>
 
       <View style={styles.summaryCard}>
@@ -396,7 +606,7 @@ export default function HistoryScreen() {
       </View>
 
       <View style={styles.chartCard}>
-        <View style={styles.cardHeader}>
+        <View style={[styles.cardHeader, styles.chartHeader]}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>{period.trendTitle}</Text>
             <Feather name="bar-chart-2" size={17} color={colors.textSecondary} />
@@ -412,7 +622,7 @@ export default function HistoryScreen() {
             {period.points.map((point, index) => {
               const totalHeight = Math.max(4, Math.round((point.total / maxValue) * 104));
               const goalHeight = Math.max(4, Math.round((point.goal / maxValue) * 104));
-              const showLabel = period.points.length <= 12 || index === 0 || index === period.points.length - 1 || index % 5 === 0;
+              const showLabel = point.showLabel ?? (period.points.length <= 12 || index === 0 || index === period.points.length - 1 || index % 5 === 0);
 
               return (
                 <View key={point.key} style={styles.barColumn}>
@@ -426,7 +636,9 @@ export default function HistoryScreen() {
                       ]}
                     />
                   </View>
-                  <Text style={styles.barLabel}>{showLabel ? point.label : ''}</Text>
+                  <Text numberOfLines={1} ellipsizeMode="clip" style={styles.barLabel}>
+                    {showLabel ? point.label : ''}
+                  </Text>
                 </View>
               );
             })}
@@ -441,8 +653,8 @@ export default function HistoryScreen() {
 
       <View style={styles.listCard}>
         <Text style={styles.cardTitle}>{copy.recent}</Text>
-        {recentRecords.length > 0 ? (
-          recentRecords.map((record) => (
+        {periodRecords.length > 0 ? (
+          periodRecords.map((record) => (
             <View key={record.dateKey} style={styles.dayRow}>
               <View>
                 <Text style={styles.dayTitle}>{formatDayLabel(parseDateKey(record.dateKey))}</Text>
@@ -525,6 +737,45 @@ function createStyles(colors: typeof Theme.colors) {
   segmentTextSelected: {
     color: colors.primary,
   },
+  periodNavigator: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  periodNavButton: {
+    width: 42,
+    height: 42,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodNavButtonDisabled: {
+    opacity: 0.42,
+  },
+  periodNavigatorCenter: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+  },
+  periodNavigatorText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 12,
+    lineHeight: 16,
+  },
   summaryCard: {
     backgroundColor: colors.surface,
     borderRadius: Theme.radius.card,
@@ -561,6 +812,9 @@ function createStyles(colors: typeof Theme.colors) {
   cardHeader: {
     gap: 9,
     marginBottom: 14,
+  },
+  chartHeader: {
+    marginBottom: 6,
   },
   cardTitleRow: {
     flexDirection: 'row',
@@ -667,7 +921,7 @@ function createStyles(colors: typeof Theme.colors) {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 4,
-    paddingTop: 8,
+    paddingTop: 4,
   },
   barColumn: {
     flex: 1,
@@ -700,11 +954,13 @@ function createStyles(colors: typeof Theme.colors) {
   },
   barLabel: {
     minHeight: 14,
+    width: 24,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 9,
     lineHeight: 12,
     marginTop: 7,
+    textAlign: 'center',
   },
   emptyState: {
     minHeight: 132,

@@ -25,38 +25,33 @@ import {
   Platform,
   useWindowDimensions,
   Alert,
-  Switch,
   Keyboard,
+  Linking,
 } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import { File as ExpoFile } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  FadeOutDown,
   Extrapolation,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
   interpolateColor,
   type SharedValue,
 } from 'react-native-reanimated';
-import ReanimatedSwipeable, {
-  type SwipeableMethods,
-} from 'react-native-gesture-handler/ReanimatedSwipeable';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/fixed-scale-text';
-import { buildWaterDataExport } from '@/utils/storage';
+import { buildWaterDataExport, importWaterDataExport } from '@/utils/storage';
 
 function DeleteTimeAction({
   progress,
@@ -167,7 +162,8 @@ const APPEARANCE_OPTIONS = {
 const DAILY_GOALS = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
 const BASE_WEIGHT_SLOPE = 14;
 const HYDRATION_GOAL_IMAGE = require('../../assets/images/hydration-goal-illustration.png');
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const MODAL_ENTER_TIMING = { duration: 360, easing: Easing.out(Easing.cubic) };
+const MODAL_EXIT_TIMING = { duration: 220, easing: Easing.in(Easing.cubic) };
 
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high';
 type SexProfile = 'unspecified' | 'female' | 'male';
@@ -176,9 +172,9 @@ type PressableStyle = React.ComponentProps<typeof Pressable>['style'];
 type SettingsLayout = ReturnType<typeof createSettingsLayout>;
 type IntervalUnit = 'min' | 'hour';
 type TimePickerTarget = 'quietStart' | 'quietEnd' | 'reminderTime';
+type SystemSettingsSection = 'preferences' | 'permissions' | 'data' | 'about';
 
 type SoftPressableProps = Omit<React.ComponentProps<typeof Pressable>, 'style'> & {
-  scaleTo?: number;
   style?: PressableStyle;
 };
 
@@ -187,46 +183,71 @@ function SoftPressable({
   disabled,
   onPressIn,
   onPressOut,
-  scaleTo = 0.99,
   style,
   ...props
 }: SoftPressableProps) {
   const [pressed, setPressed] = React.useState(false);
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
   const resolvedStyle = typeof style === 'function'
     ? style({ pressed, hovered: false })
     : style;
 
   return (
-    <AnimatedPressable
+    <Pressable
       {...props}
       disabled={disabled}
       onPressIn={(event) => {
         setPressed(true);
-        if (!disabled) {
-          scale.value = withTiming(scaleTo, { duration: 190 });
-        }
         onPressIn?.(event);
       }}
       onPressOut={(event) => {
         setPressed(false);
-        if (!disabled) {
-          scale.value = withSpring(1, {
-            damping: 19,
-            stiffness: 145,
-            mass: 0.62,
-          });
-        }
         onPressOut?.(event);
       }}
-      style={[resolvedStyle, animatedStyle]}
+      style={resolvedStyle}
     >
       {children}
-    </AnimatedPressable>
+    </Pressable>
   );
+}
+
+function useModalEntrance(isVisible: boolean, progress: SharedValue<number>) {
+  const entranceTokenRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (!isVisible) {
+      return;
+    }
+
+    entranceTokenRef.current += 1;
+    const token = entranceTokenRef.current;
+    progress.value = 0;
+    let secondFrame: number | null = null;
+
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        if (entranceTokenRef.current === token) {
+          progress.value = withTiming(1, MODAL_ENTER_TIMING);
+        }
+      });
+    });
+
+    return () => {
+      entranceTokenRef.current += 1;
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) {
+        cancelAnimationFrame(secondFrame);
+      }
+    };
+  }, [isVisible, progress]);
+
+  return React.useCallback((onFinished: () => void) => {
+    entranceTokenRef.current += 1;
+    progress.value = withTiming(0, MODAL_EXIT_TIMING, (finished) => {
+      if (finished) {
+        runOnJS(onFinished)();
+      }
+    });
+  }, [progress]);
 }
 
 
@@ -303,6 +324,91 @@ function deriveIntervalInput(minutes: number): { value: string; unit: IntervalUn
   return { value: minutes > 0 ? String(minutes) : '', unit: 'min' };
 }
 
+function formatStoragePath(uri: string): string {
+  if (!uri) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(uri);
+  } catch {
+    return uri;
+  }
+}
+
+function compareVersionStrings(current: string, latest: string): number {
+  const currentParts = current.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const latestParts = latest.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const partCount = Math.max(currentParts.length, latestParts.length);
+
+  for (let index = 0; index < partCount; index += 1) {
+    const currentPart = currentParts[index] ?? 0;
+    const latestPart = latestParts[index] ?? 0;
+
+    if (latestPart > currentPart) {
+      return 1;
+    }
+
+    if (latestPart < currentPart) {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+function readStringField(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function readNumberField(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function normalizeReleaseVersion(value: string): string {
+  return value.trim().replace(/^[vV]/, '');
+}
+
+function readReleaseAssetDownloadUrl(payload: Record<string, unknown>): string {
+  const assets = Array.isArray(payload.assets) ? payload.assets : [];
+  const apkAsset = assets.find((asset) => {
+    if (typeof asset !== 'object' || asset === null) {
+      return false;
+    }
+
+    const record = asset as Record<string, unknown>;
+    const name = readStringField(record.name).toLowerCase();
+    const contentType = readStringField(record.content_type).toLowerCase();
+
+    return name.endsWith('.apk') || contentType === 'application/vnd.android.package-archive';
+  });
+
+  if (apkAsset && typeof apkAsset === 'object' && apkAsset !== null) {
+    return readStringField((apkAsset as Record<string, unknown>).browser_download_url);
+  }
+
+  return '';
+}
+
+function parseUpdatePayload(payload: Record<string, unknown>) {
+  const directVersion = normalizeReleaseVersion(readStringField(payload.version));
+  const githubTagVersion = normalizeReleaseVersion(readStringField(payload.tag_name));
+  const latestVersion = directVersion || githubTagVersion;
+  const latestVersionCode = readNumberField(payload.versionCode);
+  const directDownloadUrl = readStringField(payload.downloadUrl) || readStringField(payload.releaseUrl);
+  const githubAssetUrl = readReleaseAssetDownloadUrl(payload);
+  const releasePageUrl = readStringField(payload.html_url);
+  const downloadUrl = directDownloadUrl || githubAssetUrl || releasePageUrl;
+  const releaseNotes = readStringField(payload.releaseNotes) || readStringField(payload.body);
+
+  return {
+    latestVersion,
+    latestVersionCode,
+    downloadUrl,
+    releaseNotes,
+  };
+}
+
 /** 滚轮式时间选择列 — 中心位置始终为选中项，支持循环滚动 */
 function WheelColumn({
   data,
@@ -325,10 +431,13 @@ function WheelColumn({
   // 重复 3 组数据实现循环效果
   const repeatedData = React.useMemo(() => [...data, ...data, ...data], [data]);
   const middleOffset = dataLen; // 中间组的起始 index
+  const initialIndex = middleOffset + Math.max(0, data.indexOf(selectedValue));
+  const [activeRepeatedIndex, setActiveRepeatedIndex] = React.useState(initialIndex);
 
   // 静默跳到中间组（不带动画）
   const snapToMiddle = React.useCallback(
     (realIndex: number) => {
+      setActiveRepeatedIndex(middleOffset + realIndex);
       flatListRef.current?.scrollToOffset({
         offset: (middleOffset + realIndex) * PICKER_ITEM_HEIGHT,
         animated: false,
@@ -341,12 +450,22 @@ function WheelColumn({
   React.useEffect(() => {
     const realIndex = data.indexOf(selectedValue);
     if (realIndex >= 0 && flatListRef.current) {
+      setActiveRepeatedIndex(middleOffset + realIndex);
       flatListRef.current.scrollToOffset({
         offset: (middleOffset + realIndex) * PICKER_ITEM_HEIGHT,
         animated: true,
       });
     }
   }, [selectedValue, data, middleOffset]);
+
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      const repeatedIndex = Math.round(offsetY / PICKER_ITEM_HEIGHT);
+      setActiveRepeatedIndex((current) => (current === repeatedIndex ? current : repeatedIndex));
+    },
+    [],
+  );
 
   const handleScrollEnd = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -367,9 +486,20 @@ function WheelColumn({
     [data, dataLen, selectedValue, onValueChange, snapToMiddle],
   );
 
+  const handleScrollEndDrag = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const velocityY = event.nativeEvent.velocity?.y ?? 0;
+
+      if (Math.abs(velocityY) < 0.01) {
+        handleScrollEnd(event);
+      }
+    },
+    [handleScrollEnd],
+  );
+
   const renderItem = React.useCallback(
-    ({ item }: { item: number }) => {
-      const selected = item === selectedValue;
+    ({ item, index }: { item: number; index: number }) => {
+      const selected = index === activeRepeatedIndex;
       return (
         <View style={{ height: PICKER_ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
           <Text
@@ -394,7 +524,7 @@ function WheelColumn({
         </View>
       );
     },
-    [selectedValue, colors, layout],
+    [activeRepeatedIndex, colors, layout],
   );
 
   const getItemLayout = React.useCallback(
@@ -405,8 +535,6 @@ function WheelColumn({
     }),
     [],
   );
-
-  const initialIndex = middleOffset + Math.max(0, data.indexOf(selectedValue));
 
   return (
     <View style={{ flex: 1, height: PICKER_ITEM_HEIGHT * PICKER_VISIBLE_ITEMS }}>
@@ -425,6 +553,7 @@ function WheelColumn({
       <FlatList
         ref={flatListRef}
         data={repeatedData}
+        extraData={activeRepeatedIndex}
         keyExtractor={(item, index) => `${index}`}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
@@ -435,7 +564,10 @@ function WheelColumn({
           paddingTop: paddingHeight,
           paddingBottom: paddingHeight,
         }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={handleScrollEndDrag}
         initialScrollIndex={initialIndex}
       />
     </View>
@@ -747,7 +879,7 @@ export default function SettingsScreen() {
   const { width } = useWindowDimensions();
   const layout = React.useMemo(() => createSettingsLayout(width), [width]);
   const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
-  const { state, updateSettings } = useWater();
+  const { state, updateSettings, reloadData } = useWater();
   const { settings } = state;
   const [customCupSize, setCustomCupSize] = React.useState('');
   const [appliedCustomCupSize, setAppliedCustomCupSize] = React.useState<number | null>(null);
@@ -758,8 +890,6 @@ export default function SettingsScreen() {
   const [customReminderIntervalUnit, setCustomReminderIntervalUnit] = React.useState<IntervalUnit>(
     deriveIntervalInput(settings.reminderInterval).unit,
   );
-  const [reminderTimeInput, setReminderTimeInput] = React.useState('');
-  const [reminderTimesInput, setReminderTimesInput] = React.useState<string[]>(settings.reminderTimes);
   const [editingReminderTime, setEditingReminderTime] = React.useState<string | null>(null);
 
   const closeOpenTimeAction = React.useCallback(() => {
@@ -772,15 +902,25 @@ export default function SettingsScreen() {
   const [timePickerMinute, setTimePickerMinute] = React.useState(0);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
   const [isExactTimeModalVisible, setIsExactTimeModalVisible] = React.useState(false);
+  const goalModalProgress = useSharedValue(0);
+  const exactTimeModalProgress = useSharedValue(0);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
-  const [isQuietModalVisible, setIsQuietModalVisible] = React.useState(false);
-  const [isAboutModalVisible, setIsAboutModalVisible] = React.useState(false);
+  const systemModalProgress = useSharedValue(0);
+  const [systemDetailSection, setSystemDetailSection] = React.useState<SystemSettingsSection | null>(null);
+  const [isExportSuccessModalVisible, setIsExportSuccessModalVisible] = React.useState(false);
+  const exportSuccessModalProgress = useSharedValue(0);
   const [exportStatus, setExportStatus] = React.useState('');
+  const [isExportActionReady, setIsExportActionReady] = React.useState(false);
+  const [lastExportPath, setLastExportPath] = React.useState('');
+  const [isCheckingUpdate, setIsCheckingUpdate] = React.useState(false);
   const [weightKg, setWeightKg] = React.useState('60');
   const [activityLevel, setActivityLevel] = React.useState<ActivityLevel>('sedentary');
   const [sexProfile, setSexProfile] = React.useState<SexProfile>('unspecified');
   const [dietProfile, setDietProfile] = React.useState<DietProfile>('balanced');
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const appVersionCode = Constants.expoConfig?.android?.versionCode ?? 0;
+  const updateCheckUrl = readStringField(Constants.expoConfig?.extra?.updateCheckUrl);
+  const androidPackageName = Constants.expoConfig?.android?.package ?? 'com.xukunyao.soma';
   const language = settings.language;
   const isEnglish = language === 'en';
   const aboutAuthorBody = [
@@ -794,6 +934,111 @@ export default function SettingsScreen() {
     '谢谢你把它留在手机里。',
     '愿你今天也记得喝一口水。',
   ].join('\n');
+  const animateExactTimeModalOut = useModalEntrance(isExactTimeModalVisible, exactTimeModalProgress);
+  const animateGoalModalOut = useModalEntrance(isGoalModalVisible, goalModalProgress);
+  const animateSystemModalOut = useModalEntrance(isSystemModalVisible, systemModalProgress);
+  const animateExportSuccessModalOut = useModalEntrance(
+    isExportSuccessModalVisible,
+    exportSuccessModalProgress,
+  );
+  const exactTimeModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: exactTimeModalProgress.value,
+  }));
+  const exactTimeModalCardStyle = useAnimatedStyle(() => ({
+    opacity: exactTimeModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        exactTimeModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
+  const goalModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: goalModalProgress.value,
+  }));
+  const goalModalCardStyle = useAnimatedStyle(() => ({
+    opacity: goalModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        goalModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
+  const systemModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: systemModalProgress.value,
+  }));
+  const systemModalCardStyle = useAnimatedStyle(() => ({
+    opacity: systemModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        systemModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
+  const exportSuccessModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: exportSuccessModalProgress.value,
+  }));
+  const exportSuccessModalCardStyle = useAnimatedStyle(() => ({
+    opacity: exportSuccessModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        exportSuccessModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
+  const openExactTimeModal = React.useCallback(() => {
+    exactTimeModalProgress.value = 0;
+    setIsExactTimeModalVisible(true);
+  }, [exactTimeModalProgress]);
+  const hideExactTimeModal = React.useCallback(() => {
+    setIsExactTimeModalVisible(false);
+  }, []);
+  const closeExactTimeModal = React.useCallback(() => {
+    animateExactTimeModalOut(hideExactTimeModal);
+  }, [animateExactTimeModalOut, hideExactTimeModal]);
+  const openGoalModal = React.useCallback(() => {
+    goalModalProgress.value = 0;
+    setIsGoalModalVisible(true);
+  }, [goalModalProgress]);
+  const hideGoalModal = React.useCallback(() => {
+    setIsGoalModalVisible(false);
+  }, []);
+  const closeGoalModal = React.useCallback(() => {
+    animateGoalModalOut(hideGoalModal);
+  }, [animateGoalModalOut, hideGoalModal]);
+  const openSystemSettings = React.useCallback(() => {
+    systemModalProgress.value = 0;
+    setSystemDetailSection(null);
+    setIsSystemModalVisible(true);
+  }, [systemModalProgress]);
+  const hideSystemSettings = React.useCallback(() => {
+    setIsSystemModalVisible(false);
+    setSystemDetailSection(null);
+  }, []);
+  const closeSystemSettings = React.useCallback(() => {
+    animateSystemModalOut(hideSystemSettings);
+  }, [animateSystemModalOut, hideSystemSettings]);
+  const openExportSuccessModal = React.useCallback(() => {
+    exportSuccessModalProgress.value = 0;
+    setIsExportSuccessModalVisible(true);
+  }, [exportSuccessModalProgress]);
+  const hideExportSuccessModal = React.useCallback(() => {
+    setIsExportSuccessModalVisible(false);
+  }, []);
+  const closeExportSuccessModal = React.useCallback(() => {
+    animateExportSuccessModalOut(hideExportSuccessModal);
+  }, [animateExportSuccessModalOut, hideExportSuccessModal]);
   const copy = isEnglish
     ? {
       pageTitle: 'Settings',
@@ -832,6 +1077,26 @@ export default function SettingsScreen() {
       systemTitle: 'System settings',
       systemDescription: 'Language, appearance, backups, and app information.',
       systemEntryDescription: 'Language, appearance, backup, etc.',
+      preferenceTitle: 'Language & appearance',
+      preferenceDescription: 'Display language and visual theme.',
+      permissionTitle: 'Notifications & background',
+      permissionDescription: 'Notification, background activity, and startup guides.',
+      dataSectionTitle: 'Data & backups',
+      dataSectionDescription: 'Backup location, export, and restore tools.',
+      aboutSectionDescription: 'Version, author, and app information.',
+      permissionGuideTitle: 'Notifications & background',
+      permissionNotificationTitle: 'Notification permission',
+      permissionNotificationPath: 'App management -> Soma -> Notifications',
+      permissionNotificationSummary: 'Keep notifications, banner, lock screen, and status bar on',
+      permissionBatteryTitle: 'Battery activity',
+      permissionBatteryPath: 'Battery -> App battery management',
+      permissionBatterySummary: 'Allow background activity and turn off battery optimization',
+      permissionAutostartTitle: 'Auto-start',
+      permissionAutostartPath: 'Auto-start management',
+      permissionAutostartSummary: 'Allow Soma to auto-start in background, device brands may vary',
+      openNotificationSettings: 'Settings',
+      openAppSettings: 'Settings',
+      systemSettingsUnavailable: 'Unable to open system settings right now. Please open them manually.',
       language: 'Language',
       appearance: 'Appearance',
       dataTitle: 'Data storage',
@@ -841,11 +1106,23 @@ export default function SettingsScreen() {
       exportPathSelected: 'Backup location selected',
       chooseExportPath: 'Choose location',
       exportData: 'Export data',
+      importData: 'Import data',
       exportReady: 'Data exported successfully.',
+      exportSuccessTitle: 'Export complete',
+      exportSuccessDescription: 'Your Soma backup has been saved here.',
+      exportSuccessPath: 'Export address',
+      importReady: 'Data imported successfully.',
       exportNeedsPath: 'Choose a backup location first.',
+      importNeedsPath: 'Choose a backup file first.',
       exportCanceled: 'No location was selected.',
+      importCanceled: 'No backup file was selected.',
       exportUnavailable: 'Folder selection is only available on Android. Data was saved to the app document folder.',
       exportFailed: 'Export failed. Please try again.',
+      importFailed: 'Import failed. Please check the backup file.',
+      importConfirmTitle: 'Import backup?',
+      importConfirmBody: 'This will restore records and settings from the selected Soma JSON backup file.',
+      importConfirmAction: 'Import',
+      cancel: 'Cancel',
       aboutTitle: 'About Soma',
       aboutDescription: '慢慢喝水，慢慢照顾自己。',
       aboutAuthorTitle: 'About the author',
@@ -853,6 +1130,16 @@ export default function SettingsScreen() {
       author: 'Author',
       contact: 'Contact',
       version: 'Version',
+      checkUpdate: 'Check for updates',
+      checkingUpdate: 'Checking...',
+      updateTitle: 'App update',
+      updateNeedsConfig: 'No update source is configured yet.',
+      updateInvalid: 'The update information is not available right now.',
+      updateNetworkFailed: 'Unable to check for updates. Please try again later.',
+      updateAvailable: 'A new version is available: v{version}.',
+      updateUpToDate: 'You are already on the latest version.',
+      updateOpen: 'Open',
+      updateLater: 'Later',
       currentName: '包子小方同学',
       modalTitle: 'Custom hydration goal',
       modalDescription: 'Estimate a water goal for today’s records and reminders.',
@@ -905,29 +1192,71 @@ export default function SettingsScreen() {
       minuteUnit: '分钟',
       hourUnit: '小时',
       systemTitle: '系统设置',
-      systemDescription: '设置语言、外观、数据备份和应用信息。',
+      systemDescription: '设置语言、外观、数据备份和应用信息',
       systemEntryDescription: '语言、外观、备份等',
+      preferenceTitle: '语言与外观',
+      preferenceDescription: '显示语言、浅色/深色模式等界面偏好',
+      permissionTitle: '通知与后台',
+      permissionDescription: '通知权限、后台活动和自启动指引',
+      dataSectionTitle: '数据与备份',
+      dataSectionDescription: '备份位置、导出和导入记录',
+      aboutSectionDescription: '版本、作者和应用信息',
+      permissionGuideTitle: '',
+      permissionNotificationTitle: '通知权限',
+      permissionNotificationPath: '设置 -> 应用管理 -> Soma -> 通知',
+      permissionNotificationSummary: '确认通知、横幅、锁屏、状态栏都已开启',
+      permissionBatteryTitle: '后台耗电管理',
+      permissionBatteryPath: '设置 -> 电池 -> 应用耗电管理',
+      permissionBatterySummary: '允许后台活动并关闭 Soma 省电优化',
+      permissionAutostartTitle: '自启动管理',
+      permissionAutostartPath: '设置 -> 自启动管理',
+      permissionAutostartSummary: '允许 Soma 自启动或后台启动',
+      openNotificationSettings: '设置',
+      openAppSettings: '设置',
+      systemSettingsUnavailable: '暂时无法打开系统设置，请手动前往设置查看。',
       language: '语言',
       appearance: '外观',
       dataTitle: '数据存储',
-      dataDescription: '记录保存在 Soma 应用内部。你可以选择备份位置，并导出本地 JSON 文件。',
+      dataDescription: '记录保存在 Soma 应用内部。你可以选择备份位置，并导出本地 JSON 文件',
       exportPath: '备份位置',
       exportPathEmpty: '尚未选择备份位置',
       exportPathSelected: '已选择备份位置',
       chooseExportPath: '选择位置',
       exportData: '导出数据',
+      importData: '导入数据',
       exportReady: '数据已成功导出。',
+      exportSuccessTitle: '导出完成',
+      exportSuccessDescription: 'Soma 备份文件已经保存在这里',
+      exportSuccessPath: '导出地址',
+      importReady: '数据已成功导入。',
       exportNeedsPath: '请先选择备份位置。',
+      importNeedsPath: '请先选择备份文件。',
       exportCanceled: '未选择位置。',
+      importCanceled: '没有选择要导入的备份文件。',
       exportUnavailable: '当前平台不支持选择文件夹，已保存到应用文档目录。',
       exportFailed: '导出失败，请重试。',
+      importFailed: '导入失败，请检查备份文件。',
+      importConfirmTitle: '导入备份？',
+      importConfirmBody: '将从你选择的 Soma JSON 备份文件中恢复记录和设置。',
+      importConfirmAction: '导入',
+      cancel: '取消',
       aboutTitle: '关于 Soma',
-      aboutDescription: '慢慢喝水，慢慢照顾自己。',
+      aboutDescription: '慢慢喝水，慢慢照顾自己',
       aboutAuthorTitle: '关于作者',
       aboutAuthorBody,
       author: '作者',
       contact: '联系方式',
       version: '版本',
+      checkUpdate: '检查更新',
+      checkingUpdate: '检查中...',
+      updateTitle: '应用更新',
+      updateNeedsConfig: '还没有配置更新来源。',
+      updateInvalid: '暂时无法读取更新信息。',
+      updateNetworkFailed: '检查更新失败，请稍后再试。',
+      updateAvailable: '发现新版本：v{version}。',
+      updateUpToDate: '当前已经是最新版本。',
+      updateOpen: '打开',
+      updateLater: '稍后',
       currentName: '包子小方同学',
       modalTitle: '自定义喝水目标',
       modalDescription: '估算适合今天记录和提醒的喝水量',
@@ -949,11 +1278,9 @@ export default function SettingsScreen() {
   React.useEffect(() => {
     setQuietStartInput(settings.reminderQuietStart);
     setQuietEndInput(settings.reminderQuietEnd);
-    setReminderTimesInput(settings.reminderTimes);
   }, [
     settings.reminderQuietEnd,
     settings.reminderQuietStart,
-    settings.reminderTimes,
   ]);
   const localizedActivityLevels = React.useMemo(
     () => ACTIVITY_LEVELS.map((option) => ({
@@ -983,12 +1310,6 @@ export default function SettingsScreen() {
     ? DAILY_GOALS
     : [...DAILY_GOALS, settings.dailyGoal];
 
-  const isQuietStartValid = isValidTimeInput(quietStartInput);
-  const isQuietEndValid = isValidTimeInput(quietEndInput);
-  const isQuietWindowValid = isQuietStartValid && isQuietEndValid;
-  const quietSummary = copy.quietSummary
-    .replace('{start}', quietStartInput || '--:--')
-    .replace('{end}', quietEndInput || '--:--');
   const parsedCustomReminderInterval = Number.parseInt(customReminderIntervalInput, 10);
   const hasCustomReminderIntervalInput = customReminderIntervalInput.trim().length > 0;
   const parsedCustomReminderIntervalMinutes = customReminderIntervalUnit === 'hour'
@@ -998,7 +1319,6 @@ export default function SettingsScreen() {
     || (Number.isFinite(parsedCustomReminderIntervalMinutes)
       && parsedCustomReminderIntervalMinutes >= 1
       && parsedCustomReminderIntervalMinutes <= 720);
-  const activeReminderTimes = normalizeReminderTimes(reminderTimesInput);
   const customIntervalOption = settings.reminderCustomInterval > 0
     ? {
       label: isEnglish
@@ -1041,13 +1361,74 @@ export default function SettingsScreen() {
     ? copy.cupSingle.replace('{count}', String(cupCountMin))
     : copy.cupRange.replace('{min}', String(cupCountMin)).replace('{max}', String(cupCountMax));
   const exportDirectoryLabel = settings.exportDirectoryUri
-    ? copy.exportPathSelected
+    ? formatStoragePath(settings.exportDirectoryUri)
     : copy.exportPathEmpty;
+  const systemSections = React.useMemo(() => [
+    {
+      key: 'preferences' as const,
+      icon: 'sliders' as const,
+      title: copy.preferenceTitle,
+      description: copy.preferenceDescription,
+    },
+    {
+      key: 'permissions' as const,
+      icon: 'bell' as const,
+      title: copy.permissionTitle,
+      description: copy.permissionDescription,
+    },
+    {
+      key: 'data' as const,
+      icon: 'database' as const,
+      title: copy.dataSectionTitle,
+      description: copy.dataSectionDescription,
+    },
+    {
+      key: 'about' as const,
+      icon: 'info' as const,
+      title: copy.aboutTitle,
+      description: copy.aboutSectionDescription,
+    },
+  ], [
+    copy.aboutSectionDescription,
+    copy.aboutTitle,
+    copy.dataSectionDescription,
+    copy.dataSectionTitle,
+    copy.permissionDescription,
+    copy.permissionTitle,
+    copy.preferenceDescription,
+    copy.preferenceTitle,
+  ]);
+  const activeSystemSection = systemSections.find((section) => section.key === systemDetailSection);
+  const openAppSystemSettings = async () => {
+    try {
+      await Linking.openSettings();
+    } catch {
+      Alert.alert(copy.systemTitle, copy.systemSettingsUnavailable);
+    }
+  };
+
+  const openNotificationSystemSettings = async () => {
+    if (Platform.OS !== 'android') {
+      await openAppSystemSettings();
+      return;
+    }
+
+    try {
+      await Linking.sendIntent('android.settings.APP_NOTIFICATION_SETTINGS', [
+        { key: 'android.provider.extra.APP_PACKAGE', value: androidPackageName },
+      ]);
+    } catch {
+      await openAppSystemSettings();
+    }
+  };
+
   const chooseExportDirectory = async () => {
     setExportStatus('');
+    setIsExportActionReady(false);
 
     if (Platform.OS !== 'android') {
       updateSettings({ exportDirectoryUri: FileSystem.documentDirectory ?? '' });
+      setIsExportActionReady(Boolean(FileSystem.documentDirectory));
       setExportStatus(copy.exportUnavailable);
       return;
     }
@@ -1063,6 +1444,7 @@ export default function SettingsScreen() {
       }
 
       updateSettings({ exportDirectoryUri: permissions.directoryUri });
+      setIsExportActionReady(true);
       setExportStatus(copy.exportPathSelected);
     } catch {
       setExportStatus(copy.exportFailed);
@@ -1072,10 +1454,15 @@ export default function SettingsScreen() {
   const exportWaterData = async () => {
     setExportStatus('');
 
+    if (!isExportActionReady) {
+      setExportStatus(copy.exportNeedsPath);
+      return;
+    }
+
     try {
       const payload = await buildWaterDataExport();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `soma-water-data-${timestamp}`;
+      const filename = `soma-water-data-${timestamp}.json`;
       const contents = JSON.stringify(payload, null, 2);
 
       if (Platform.OS === 'android') {
@@ -1092,7 +1479,11 @@ export default function SettingsScreen() {
         await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, contents, {
           encoding: FileSystem.EncodingType.UTF8,
         });
-        setExportStatus(copy.exportReady);
+        setIsExportActionReady(false);
+        setExportStatus('');
+        setLastExportPath(formatStoragePath(fileUri));
+        updateSettings({ exportDirectoryUri: '' });
+        openExportSuccessModal();
         return;
       }
 
@@ -1101,13 +1492,117 @@ export default function SettingsScreen() {
         return;
       }
 
-      await FileSystem.writeAsStringAsync(`${FileSystem.documentDirectory}${filename}.json`, contents, {
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, contents, {
         encoding: FileSystem.EncodingType.UTF8,
       });
-      setExportStatus(copy.exportReady);
+      setIsExportActionReady(false);
+      setExportStatus('');
+      setLastExportPath(formatStoragePath(fileUri));
+      updateSettings({ exportDirectoryUri: '' });
+      openExportSuccessModal();
     } catch {
       setExportStatus(copy.exportFailed);
       Alert.alert(copy.dataTitle, copy.exportFailed);
+    }
+  };
+
+  const confirmImport = React.useCallback(() => new Promise<boolean>((resolve) => {
+    Alert.alert(copy.importConfirmTitle, copy.importConfirmBody, [
+      { text: copy.cancel, style: 'cancel', onPress: () => resolve(false) },
+      { text: copy.importConfirmAction, style: 'default', onPress: () => resolve(true) },
+    ]);
+  }), [copy.cancel, copy.importConfirmAction, copy.importConfirmBody, copy.importConfirmTitle]);
+
+  const importWaterData = async () => {
+    setExportStatus('');
+
+    const shouldImport = await confirmImport();
+    if (!shouldImport) {
+      return;
+    }
+
+    try {
+      const pickedFile = await (ExpoFile as typeof ExpoFile & {
+        pickFileAsync?: (initialUri?: string, mimeType?: string) => Promise<{ uri: string } | { uri: string }[]>;
+      }).pickFileAsync?.(undefined, 'application/json');
+      const fileUri = Array.isArray(pickedFile) ? pickedFile[0]?.uri : pickedFile?.uri;
+
+      if (!fileUri) {
+        setExportStatus(copy.importCanceled);
+        return;
+      }
+
+      const contents = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      const result = await importWaterDataExport(JSON.parse(contents));
+      await reloadData();
+      setExportStatus(`${copy.importReady} ${result.logDays} ${isEnglish ? 'days' : '天'}。`);
+    } catch (error) {
+      if (error instanceof Error && error.message.toLowerCase().includes('cancel')) {
+        setExportStatus(copy.importCanceled);
+        return;
+      }
+
+      setExportStatus(copy.importFailed);
+      Alert.alert(copy.dataTitle, copy.importFailed);
+    }
+  };
+
+  const checkForUpdates = async () => {
+    if (!updateCheckUrl) {
+      Alert.alert(copy.updateTitle, copy.updateNeedsConfig);
+      return;
+    }
+
+    setIsCheckingUpdate(true);
+
+    try {
+      const response = await fetch(updateCheckUrl);
+
+      if (!response.ok) {
+        throw new Error('Update check failed');
+      }
+
+      const payload = await response.json() as Record<string, unknown>;
+      const {
+        latestVersion,
+        latestVersionCode,
+        downloadUrl,
+        releaseNotes,
+      } = parseUpdatePayload(payload);
+
+      if (!latestVersion && latestVersionCode === null) {
+        Alert.alert(copy.updateTitle, copy.updateInvalid);
+        return;
+      }
+
+      const hasNewerVersionCode = latestVersionCode !== null && latestVersionCode > appVersionCode;
+      const hasNewerVersionName = latestVersion ? compareVersionStrings(appVersion, latestVersion) > 0 : false;
+
+      if (!hasNewerVersionCode && !hasNewerVersionName) {
+        Alert.alert(copy.updateTitle, copy.updateUpToDate);
+        return;
+      }
+
+      const versionText = latestVersion || String(latestVersionCode);
+      const message = [
+        copy.updateAvailable.replace('{version}', versionText),
+        releaseNotes,
+      ].filter(Boolean).join('\n\n');
+      const actions = downloadUrl
+        ? [
+          { text: copy.updateLater, style: 'cancel' as const },
+          { text: copy.updateOpen, onPress: () => Linking.openURL(downloadUrl) },
+        ]
+        : [{ text: copy.updateLater }];
+
+      Alert.alert(copy.updateTitle, message, actions);
+    } catch {
+      Alert.alert(copy.updateTitle, copy.updateNetworkFailed);
+    } finally {
+      setIsCheckingUpdate(false);
     }
   };
 
@@ -1125,7 +1620,7 @@ export default function SettingsScreen() {
     }
 
     updateSettings({ dailyGoal: estimatedDailyGoal });
-    setIsGoalModalVisible(false);
+    closeGoalModal();
   };
 
   const saveCustomCupSize = () => {
@@ -1141,21 +1636,6 @@ export default function SettingsScreen() {
     updateSettings({ cupSize: size });
     setAppliedCustomCupSize(null);
     setCustomCupSize('');
-  };
-
-  const addReminderTime = () => {
-    if (!isValidTimeInput(reminderTimeInput)) {
-      return;
-    }
-
-    const nextTimes = normalizeReminderTimes([...settings.reminderTimes, reminderTimeInput]);
-    updateSettings({ reminderTimes: nextTimes });
-    setReminderTimeInput('');
-  };
-
-  const removeReminderTime = (time: string) => {
-    const nextTimes = settings.reminderTimes.filter((item) => item !== time);
-    updateSettings({ reminderTimes: nextTimes });
   };
 
   const openTimePicker = (target: TimePickerTarget, currentValue: string, editTargetTime?: string) => {
@@ -1261,6 +1741,8 @@ export default function SettingsScreen() {
       style={[styles.container, { paddingTop: insets.top }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       {/* 页面标题 */}
       <Text style={styles.pageTitle}>{copy.pageTitle}</Text>
@@ -1270,7 +1752,7 @@ export default function SettingsScreen() {
         <View style={styles.settingHeader}>
           <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.dailyGoalTitle}</Text>
           <SoftPressable
-            onPress={() => setIsGoalModalVisible(true)}
+            onPress={openGoalModal}
             style={({ pressed }) => [
               styles.estimatePill,
               pressed && styles.estimateButtonPressed,
@@ -1354,7 +1836,7 @@ export default function SettingsScreen() {
         <View style={styles.settingHeader}>
           <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
           <SoftPressable
-            onPress={() => setIsExactTimeModalVisible(true)}
+            onPress={openExactTimeModal}
             style={({ pressed }) => [
               styles.estimatePill,
               pressed && styles.estimateButtonPressed,
@@ -1497,7 +1979,7 @@ export default function SettingsScreen() {
       </View>
       {/* 系统设置 */}
       <SoftPressable
-        onPress={() => setIsSystemModalVisible(true)}
+        onPress={openSystemSettings}
         style={({ pressed }) => [
           styles.card,
           styles.systemEntryCard,
@@ -1526,28 +2008,26 @@ export default function SettingsScreen() {
         animationType="none"
         hardwareAccelerated
         statusBarTranslucent
-        onRequestClose={() => setIsExactTimeModalVisible(false)}
+        onRequestClose={closeExactTimeModal}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalRoot}
         >
-          <Animated.View
-            entering={FadeIn.duration(320)}
-            exiting={FadeOut.duration(220)}
-            style={styles.modalBackdrop}
-          >
+          <Animated.View style={[styles.modalBackdrop, exactTimeModalBackdropStyle]}>
             <Pressable
               style={StyleSheet.absoluteFill}
-              onPress={() => setIsExactTimeModalVisible(false)}
+              onPress={closeExactTimeModal}
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.duration(520).easing(Easing.out(Easing.cubic))}
-            exiting={FadeOutDown.duration(240).easing(Easing.in(Easing.cubic))}
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
             style={[
               styles.modalCard,
+              styles.settingsSubpageModalCard,
+              exactTimeModalCardStyle,
               { marginTop: Math.max(insets.top + 20, 36) },
             ]}
           >
@@ -1559,7 +2039,7 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <SoftPressable
-                onPress={() => setIsExactTimeModalVisible(false)}
+                onPress={closeExactTimeModal}
                 accessibilityRole="button"
                 accessibilityLabel={copy.close}
                 style={({ pressed }) => [
@@ -1643,7 +2123,7 @@ export default function SettingsScreen() {
                     );
                 })}
                 <SoftPressable
-                  onPress={() => openTimePicker('reminderTime', reminderTimeInput || '09:00')}
+                  onPress={() => openTimePicker('reminderTime', '09:00')}
                   style={({ pressed }) => [
                     styles.addTimeDashedButton,
                     pressed && styles.estimateButtonPressed,
@@ -1665,27 +2145,25 @@ export default function SettingsScreen() {
         animationType="none"
         hardwareAccelerated
         statusBarTranslucent
-        onRequestClose={() => setIsGoalModalVisible(false)}
+        onRequestClose={closeGoalModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalRoot}
         >
-          <Animated.View
-            entering={FadeIn.duration(320)}
-            exiting={FadeOut.duration(220)}
-            style={styles.modalBackdrop}
-          >
+          <Animated.View style={[styles.modalBackdrop, goalModalBackdropStyle]}>
             <Pressable
               style={StyleSheet.absoluteFill}
-              onPress={() => setIsGoalModalVisible(false)}
+              onPress={closeGoalModal}
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.duration(520).easing(Easing.out(Easing.cubic))}
-            exiting={FadeOutDown.duration(240).easing(Easing.in(Easing.cubic))}
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
             style={[
               styles.modalCard,
+              styles.settingsSubpageModalCard,
+              goalModalCardStyle,
               { marginTop: Math.max(insets.top + 20, 36) },
             ]}
           >
@@ -1697,7 +2175,7 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <SoftPressable
-                onPress={() => setIsGoalModalVisible(false)}
+                onPress={closeGoalModal}
                 accessibilityRole="button"
                 accessibilityLabel={copy.close}
                 style={({ pressed }) => [
@@ -1869,6 +2347,7 @@ export default function SettingsScreen() {
                 accessibilityLabel={copy.close}
                 style={({ pressed }) => [
                   styles.closeButton,
+                  styles.timePickerCloseButton,
                   pressed && styles.closeButtonPressed,
                 ]}
               >
@@ -1910,42 +2389,59 @@ export default function SettingsScreen() {
         animationType="none"
         hardwareAccelerated
         statusBarTranslucent
-        onRequestClose={() => setIsSystemModalVisible(false)}
+        onRequestClose={closeSystemSettings}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalRoot}
         >
-          <Animated.View
-            entering={FadeIn.duration(280)}
-            exiting={FadeOut.duration(200)}
-            style={styles.modalBackdrop}
-          >
+          <Animated.View style={[styles.modalBackdrop, systemModalBackdropStyle]}>
             <Pressable
               style={StyleSheet.absoluteFill}
-              onPress={() => setIsSystemModalVisible(false)}
+              onPress={closeSystemSettings}
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.duration(460).easing(Easing.out(Easing.cubic))}
-            exiting={FadeOutDown.duration(220).easing(Easing.in(Easing.cubic))}
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
             style={[
               styles.modalCard,
               styles.systemModalCard,
+              systemModalCardStyle,
               { marginTop: Math.max(insets.top + 20, 36) },
             ]}
           >
             <View style={styles.modalHeader}>
+              {systemDetailSection ? (
+                <SoftPressable
+                  onPress={() => setSystemDetailSection(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel={isEnglish ? 'Back' : '返回'}
+                  style={({ pressed }) => [
+                    styles.closeButton,
+                    styles.systemBackButton,
+                    styles.systemHeaderButton,
+                    pressed && styles.closeButtonPressed,
+                  ]}
+                >
+                  <Feather name="chevron-left" size={23} color={colors.textSecondary} />
+                </SoftPressable>
+              ) : null}
               <View style={styles.modalHeaderCopy}>
-                <Text style={styles.modalTitle}>{copy.systemTitle}</Text>
-                <Text style={styles.modalDescription}>{copy.systemDescription}</Text>
+                <Text style={styles.modalTitle}>
+                  {activeSystemSection?.title ?? copy.systemTitle}
+                </Text>
+                <Text style={styles.modalDescription}>
+                  {activeSystemSection?.description ?? copy.systemDescription}
+                </Text>
               </View>
               <SoftPressable
-                onPress={() => setIsSystemModalVisible(false)}
+                onPress={closeSystemSettings}
                 accessibilityRole="button"
                 accessibilityLabel={copy.close}
                 style={({ pressed }) => [
                   styles.closeButton,
+                  styles.systemHeaderButton,
                   pressed && styles.closeButtonPressed,
                 ]}
               >
@@ -1957,169 +2453,303 @@ export default function SettingsScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.systemModalContent}
             >
-              <View style={styles.systemPanel}>
-                <View style={styles.systemSection}>
-                  <View style={styles.systemLabelRow}>
-                    <Feather name="globe" size={16} color={colors.textSecondary} />
-                    <Text style={styles.systemLabel}>{copy.language}</Text>
-                  </View>
-                  <View style={styles.systemChipGroup}>
-                    {LANGUAGE_OPTIONS.map((option) => (
-                      <Chip
-                        key={option.value}
-                        label={option.label}
-                        selected={settings.language === option.value}
-                        onPress={() => updateSettings({ language: option.value })}
-                      />
+              {systemDetailSection === null ? (
+                <View style={styles.systemPanel}>
+                  <View style={styles.systemCategoryList}>
+                    {systemSections.map((section) => (
+                      <SoftPressable
+                        key={section.key}
+                        onPress={() => setSystemDetailSection(section.key)}
+                        style={({ pressed }) => [
+                          styles.systemCategoryItem,
+                          pressed && styles.estimateButtonPressed,
+                        ]}
+                      >
+                        <View style={styles.systemCategoryLeft}>
+                          <View style={styles.systemCategoryIcon}>
+                            <Feather name={section.icon} size={18} color={colors.primary} />
+                          </View>
+                          <View style={styles.systemCategoryCopy}>
+                            <Text style={styles.systemCategoryTitle}>{section.title}</Text>
+                            <Text style={styles.systemCategoryDescription} numberOfLines={2}>
+                              {section.description}
+                            </Text>
+                          </View>
+                        </View>
+                        <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+                      </SoftPressable>
                     ))}
                   </View>
                 </View>
+              ) : null}
 
-                <View style={styles.systemDivider} />
-
-                <View style={styles.systemSection}>
-                  <View style={styles.systemLabelRow}>
-                    <Feather name="moon" size={16} color={colors.textSecondary} />
-                    <Text style={styles.systemLabel}>{copy.appearance}</Text>
+              {systemDetailSection === 'preferences' ? (
+                <View style={styles.systemPanel}>
+                  <View style={[styles.systemSection, styles.systemInsetCard]}>
+                    <View style={styles.systemInsetHeader}>
+                      <View style={styles.systemInsetIcon}>
+                        <Feather name="globe" size={16} color={colors.primary} />
+                      </View>
+                      <Text style={styles.systemLabel}>{copy.language}</Text>
+                    </View>
+                    <View style={styles.systemChipGroup}>
+                      {LANGUAGE_OPTIONS.map((option) => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          selected={settings.language === option.value}
+                          onPress={() => updateSettings({ language: option.value })}
+                        />
+                      ))}
+                    </View>
                   </View>
-                  <View style={styles.systemChipGroup}>
-                    {APPEARANCE_OPTIONS[language].map((option) => (
-                      <Chip
-                        key={option.value}
-                        label={option.label}
-                        selected={settings.appearance === option.value}
-                        onPress={() => updateSettings({ appearance: option.value })}
-                      />
-                    ))}
+
+                  <View style={[styles.systemSection, styles.systemInsetCard]}>
+                    <View style={styles.systemInsetHeader}>
+                      <View style={styles.systemInsetIcon}>
+                        <Feather name="moon" size={16} color={colors.primary} />
+                      </View>
+                      <Text style={styles.systemLabel}>{copy.appearance}</Text>
+                    </View>
+                    <View style={styles.systemChipGroup}>
+                      {APPEARANCE_OPTIONS[language].map((option) => (
+                        <Chip
+                          key={option.value}
+                          label={option.label}
+                          selected={settings.appearance === option.value}
+                          onPress={() => updateSettings({ appearance: option.value })}
+                        />
+                      ))}
+                    </View>
                   </View>
                 </View>
+              ) : null}
 
-                <View style={styles.systemDivider} />
+              {systemDetailSection === 'permissions' ? (
+                <View style={styles.systemPanel}>
+                  <View style={styles.systemSection}>
+                    <View style={styles.permissionGuideList}>
+                      <View style={styles.permissionGuideCard}>
+                        <View style={styles.permissionGuideIconWrap}>
+                          <View style={styles.permissionGuideIcon}>
+                            <Feather name="bell" size={17} color={colors.primary} />
+                          </View>
+                        </View>
+                        <View style={styles.permissionGuideContent}>
+                          <View style={styles.permissionGuideHeaderRow}>
+                            <Text style={styles.permissionGuideItemTitle}>{copy.permissionNotificationTitle}</Text>
+                            <SoftPressable
+                              onPress={openNotificationSystemSettings}
+                              style={({ pressed }) => [
+                                styles.permissionGuideButton,
+                                pressed && styles.estimateButtonPressed,
+                              ]}
+                            >
+                              <Text style={styles.permissionGuideButtonText}>{copy.openNotificationSettings}</Text>
+                              <Feather name="chevron-right" size={13} color={colors.primary} />
+                            </SoftPressable>
+                          </View>
+                          <Text style={styles.permissionGuidePath}>{copy.permissionNotificationPath}</Text>
+                          <Text style={styles.permissionGuideSummary} numberOfLines={1}>{copy.permissionNotificationSummary}</Text>
+                        </View>
+                      </View>
 
-                <View style={styles.systemSection}>
-                  <View style={styles.systemLabelRow}>
-                    <Feather name="database" size={16} color={colors.textSecondary} />
-                    <Text style={styles.systemLabel}>{copy.dataTitle}</Text>
+                      <View style={styles.permissionGuideCard}>
+                        <View style={styles.permissionGuideIconWrap}>
+                          <View style={styles.permissionGuideIcon}>
+                            <Feather name="battery" size={17} color={colors.primary} />
+                          </View>
+                        </View>
+                        <View style={styles.permissionGuideContent}>
+                          <View style={styles.permissionGuideHeaderRow}>
+                            <Text style={styles.permissionGuideItemTitle}>{copy.permissionBatteryTitle}</Text>
+                            <SoftPressable
+                              onPress={openAppSystemSettings}
+                              style={({ pressed }) => [
+                                styles.permissionGuideButton,
+                                pressed && styles.estimateButtonPressed,
+                              ]}
+                            >
+                              <Text style={styles.permissionGuideButtonText}>{copy.openAppSettings}</Text>
+                              <Feather name="chevron-right" size={13} color={colors.primary} />
+                            </SoftPressable>
+                          </View>
+                          <Text style={styles.permissionGuidePath}>{copy.permissionBatteryPath}</Text>
+                          <Text style={styles.permissionGuideSummary} numberOfLines={1}>{copy.permissionBatterySummary}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.permissionGuideCard}>
+                        <View style={styles.permissionGuideIconWrap}>
+                          <View style={styles.permissionGuideIcon}>
+                            <Feather name="power" size={17} color={colors.primary} />
+                          </View>
+                        </View>
+                        <View style={styles.permissionGuideContent}>
+                          <View style={styles.permissionGuideHeaderRow}>
+                            <Text style={styles.permissionGuideItemTitle}>{copy.permissionAutostartTitle}</Text>
+                          </View>
+                          <Text style={styles.permissionGuidePath}>{copy.permissionAutostartPath}</Text>
+                          <Text style={styles.permissionGuideSummary} numberOfLines={1}>{copy.permissionAutostartSummary}</Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                  <Text style={styles.systemDescriptionText}>{copy.dataDescription}</Text>
-                  <View style={styles.dataPathBox}>
-                    <Text style={styles.dataPathLabel}>{copy.exportPath}</Text>
-                    <Text style={styles.dataPathValue} numberOfLines={1}>
-                      {exportDirectoryLabel}
-                    </Text>
-                  </View>
-                  <View style={styles.systemActionRow}>
+                </View>
+              ) : null}
+
+              {systemDetailSection === 'data' ? (
+                <View style={styles.systemPanel}>
+                  <View style={[styles.systemSection, styles.systemInsetCard]}>
+                    <View style={styles.systemInsetHeader}>
+                      <View style={styles.systemInsetIcon}>
+                        <Feather name="database" size={16} color={colors.primary} />
+                      </View>
+                      <Text style={styles.systemLabel}>{copy.dataTitle}</Text>
+                    </View>
+                    <Text style={styles.systemDescriptionText}>{copy.dataDescription}</Text>
+                    <View style={styles.dataPathBox}>
+                      <Text style={styles.dataPathLabel}>{copy.exportPath}</Text>
+                      <Text
+                        style={[
+                          styles.dataPathValue,
+                          settings.exportDirectoryUri && styles.dataPathValueSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {exportDirectoryLabel}
+                      </Text>
+                    </View>
+                    <View style={styles.systemActionRow}>
+                      <SoftPressable
+                        onPress={chooseExportDirectory}
+                        style={({ pressed }) => [
+                          styles.secondaryActionButton,
+                          pressed && styles.estimateButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.secondaryActionText}>{copy.chooseExportPath}</Text>
+                      </SoftPressable>
+                      <SoftPressable
+                        onPress={exportWaterData}
+                        disabled={!isExportActionReady}
+                        style={({ pressed }) => [
+                          styles.primaryActionButton,
+                          !isExportActionReady && styles.primaryActionButtonDisabled,
+                          pressed && isExportActionReady && styles.saveButtonPressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.primaryActionText,
+                            !isExportActionReady && styles.primaryActionTextDisabled,
+                          ]}
+                        >
+                          {copy.exportData}
+                        </Text>
+                      </SoftPressable>
+                    </View>
                     <SoftPressable
-                      onPress={chooseExportDirectory}
+                      onPress={importWaterData}
                       style={({ pressed }) => [
-                        styles.secondaryActionButton,
+                        styles.importActionButton,
                         pressed && styles.estimateButtonPressed,
                       ]}
                     >
-                      <Text style={styles.secondaryActionText}>{copy.chooseExportPath}</Text>
+                      <Feather name="upload-cloud" size={15} color={colors.primary} />
+                      <Text style={styles.importActionText}>{copy.importData}</Text>
                     </SoftPressable>
-                    <SoftPressable
-                      onPress={exportWaterData}
-                      style={({ pressed }) => [
-                        styles.primaryActionButton,
-                        pressed && styles.saveButtonPressed,
-                      ]}
-                    >
-                      <Text style={styles.primaryActionText}>{copy.exportData}</Text>
-                    </SoftPressable>
+                    {exportStatus ? (
+                      <Text style={styles.exportStatusText}>{exportStatus}</Text>
+                    ) : null}
                   </View>
-                  {exportStatus ? (
-                    <Text style={styles.exportStatusText}>{exportStatus}</Text>
-                  ) : null}
                 </View>
+              ) : null}
 
-                <View style={styles.systemDivider} />
-
-                <SoftPressable
-                  onPress={() => setIsAboutModalVisible(true)}
-                  style={({ pressed }) => [
-                    styles.aboutEntry,
-                    pressed && styles.estimateButtonPressed,
-                  ]}
-                >
-                  <View style={styles.aboutEntryCopy}>
-                    <View style={styles.systemLabelRow}>
-                      <Feather name="info" size={16} color={colors.textSecondary} />
-                      <Text style={styles.systemLabel}>{copy.aboutTitle}</Text>
+              {systemDetailSection === 'about' ? (
+                <View style={styles.aboutAuthorCard}>
+                  <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
+                  <Text style={styles.aboutAuthorBody}>{copy.aboutAuthorBody}</Text>
+                  <View style={styles.aboutInfoGroup}>
+                    <View style={styles.aboutInfoRow}>
+                      <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
+                      <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
                     </View>
-                    <Text style={styles.systemDescriptionText}>{copy.aboutDescription}</Text>
+                    <View style={styles.aboutInfoRow}>
+                      <Text style={styles.aboutInfoLabel}>{copy.contact}</Text>
+                      <Text style={styles.aboutInfoValue}>xukunyao215@163.com</Text>
+                    </View>
+                    <View style={styles.aboutInfoRow}>
+                      <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
+                      <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
+                    </View>
                   </View>
-                  <Feather name="chevron-right" size={18} color={colors.textSecondary} />
-                </SoftPressable>
-              </View>
+                  <SoftPressable
+                    onPress={checkForUpdates}
+                    disabled={isCheckingUpdate}
+                    style={({ pressed }) => [
+                      styles.updateActionButton,
+                      pressed && !isCheckingUpdate && styles.estimateButtonPressed,
+                    ]}
+                  >
+                    <View style={styles.updateActionLeft}>
+                      <View style={styles.updateActionIcon}>
+                        <Feather name="download-cloud" size={17} color={colors.primary} />
+                      </View>
+                      <Text style={styles.updateActionText}>
+                        {isCheckingUpdate ? copy.checkingUpdate : copy.checkUpdate}
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={17} color={colors.textSecondary} />
+                  </SoftPressable>
+                </View>
+              ) : null}
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
       <Modal
-        visible={isAboutModalVisible}
+        visible={isExportSuccessModalVisible}
         transparent
         animationType="none"
         hardwareAccelerated
         statusBarTranslucent
-        onRequestClose={() => setIsAboutModalVisible(false)}
+        onRequestClose={closeExportSuccessModal}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalRoot}
-        >
+        <View style={styles.modalRoot}>
           <Animated.View
-            style={styles.modalBackdrop}
-            entering={FadeIn.duration(180)}
-            exiting={FadeOut.duration(160)}
+            style={[styles.modalBackdrop, exportSuccessModalBackdropStyle]}
           >
             <Pressable
               style={StyleSheet.absoluteFill}
-              onPress={() => setIsAboutModalVisible(false)}
+              onPress={closeExportSuccessModal}
             />
           </Animated.View>
           <Animated.View
-            entering={FadeInDown.duration(420).easing(Easing.out(Easing.cubic))}
-            exiting={FadeOutDown.duration(200).easing(Easing.in(Easing.cubic))}
-            style={[styles.modalCard, styles.systemModalCard]}
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
+            style={[styles.modalCard, styles.exportSuccessCard, exportSuccessModalCardStyle]}
           >
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderCopy}>
-                <Text style={styles.modalTitle}>{copy.aboutTitle}</Text>
-                <Text style={styles.modalDescription}>{copy.aboutDescription}</Text>
-              </View>
-              <SoftPressable
-                onPress={() => setIsAboutModalVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel={copy.close}
-                style={({ pressed }) => [
-                  styles.closeButton,
-                  pressed && styles.closeButtonPressed,
-                ]}
-              >
-                <Feather name="x" size={24} color={colors.textSecondary} />
-              </SoftPressable>
+            <View style={styles.exportSuccessIcon}>
+              <Feather name="check" size={24} color={colors.success} />
             </View>
-            <View style={styles.aboutAuthorCard}>
-              <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
-              <Text style={styles.aboutAuthorBody}>{copy.aboutAuthorBody}</Text>
-              <View style={styles.aboutInfoGroup}>
-                <View style={styles.aboutInfoRow}>
-                  <Text style={styles.aboutInfoLabel}>{copy.author}</Text>
-                  <Text style={styles.aboutInfoValue}>{copy.currentName}</Text>
-                </View>
-                <View style={styles.aboutInfoRow}>
-                  <Text style={styles.aboutInfoLabel}>{copy.contact}</Text>
-                  <Text style={styles.aboutInfoValue}>xukunyao215@163.com</Text>
-                </View>
-                <View style={styles.aboutInfoRow}>
-                  <Text style={styles.aboutInfoLabel}>{copy.version}</Text>
-                  <Text style={styles.aboutInfoValue}>v{appVersion}</Text>
-                </View>
-              </View>
+            <Text style={styles.exportSuccessTitle}>{copy.exportSuccessTitle}</Text>
+            <Text style={styles.exportSuccessDescription}>{copy.exportSuccessDescription}</Text>
+            <View style={styles.exportSuccessPathBox}>
+              <Text style={styles.dataPathLabel}>{copy.exportSuccessPath}</Text>
+              <Text style={styles.exportSuccessPathText}>{lastExportPath}</Text>
             </View>
+            <SoftPressable
+              onPress={closeExportSuccessModal}
+              style={({ pressed }) => [
+                styles.modalPrimaryButton,
+                pressed && styles.saveButtonPressed,
+              ]}
+            >
+              <Text style={styles.modalPrimaryText}>{copy.confirmTime}</Text>
+            </SoftPressable>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </ScrollView>
   );
@@ -2443,6 +3073,12 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderColor: 'rgba(0, 0, 0, 0.08)',
     borderRadius: Theme.radius.card,
     marginTop: layout.s(4),
+    backgroundColor: colors.surface,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   addTimeDashedButtonText: {
     color: colors.primary,
@@ -2460,6 +3096,11 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     marginBottom: layout.s(8),
     overflow: 'hidden',
     backgroundColor: colors.dangerSoft,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   exactTimeRow: {
     flexDirection: 'row' as const,
@@ -2769,6 +3410,16 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   systemModalCard: {
     maxHeight: '84%',
+    backgroundColor: colors.background,
+  },
+  settingsSubpageModalCard: {
+    backgroundColor: colors.background,
+  },
+  systemBackButton: {
+    marginRight: 2,
+  },
+  systemHeaderButton: {
+    backgroundColor: colors.surface,
   },
   reminderModalContent: {
     paddingBottom: 4,
@@ -2778,14 +3429,89 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingBottom: 2,
   },
   systemPanel: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    gap: 10,
+  },
+  systemCategoryList: {
+    gap: 10,
+  },
+  systemCategoryItem: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    padding: 14,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
+  },
+  systemCategoryLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  systemCategoryIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  systemCategoryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  systemCategoryTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 2,
+  },
+  systemCategoryDescription: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
   },
   systemSection: {
     gap: 10,
+  },
+  systemInsetCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
+  },
+  systemInsetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  systemInsetIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   systemLabelRow: {
     flexDirection: 'row',
@@ -2801,12 +3527,90 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   systemChipGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginBottom: -8,
   },
   systemDescriptionText: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 19,
+  },
+  permissionGuideList: {
+    gap: 10,
+  },
+  permissionGuideCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  permissionGuideIconWrap: {
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+  },
+  permissionGuideIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permissionGuideContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+    paddingTop: 0,
+  },
+  permissionGuideHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
+  },
+  permissionGuideItemTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 15,
+    lineHeight: 21,
+    flex: 1,
+  },
+  permissionGuidePath: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  permissionGuideSummary: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingRight: 4,
+  },
+  permissionGuideButton: {
+    flexShrink: 0,
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: colors.primarySoft,
+    borderRadius: Theme.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+    paddingLeft: layout.s(11),
+    paddingRight: layout.s(8),
+  },
+  permissionGuideButtonText: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.caption,
   },
   aboutEntry: {
     flexDirection: 'row',
@@ -2827,7 +3631,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     marginVertical: 14,
   },
   dataPathBox: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.background,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -2842,10 +3646,13 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     lineHeight: layout.s(16),
   },
   dataPathValue: {
-    color: colors.text,
+    color: colors.textSecondary + '80',
     fontFamily: Theme.fonts.medium,
     fontSize: 13,
     lineHeight: 18,
+  },
+  dataPathValueSelected: {
+    color: colors.textSecondary,
   },
   systemActionRow: {
     flexDirection: 'row',
@@ -2857,7 +3664,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderRadius: Theme.radius.button,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
@@ -2876,14 +3683,80 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
+  primaryActionButtonDisabled: {
+    backgroundColor: colors.background,
+  },
   primaryActionText: {
     color: colors.surface,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 13,
+  },
+  primaryActionTextDisabled: {
+    color: colors.textSecondary,
+  },
+  importActionButton: {
+    minHeight: 42,
+    borderRadius: Theme.radius.button,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
+    paddingHorizontal: 12,
+  },
+  importActionText: {
+    color: colors.primary,
     fontFamily: Theme.fonts.medium,
     fontSize: 13,
   },
   exportStatusText: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  exportSuccessCard: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  exportSuccessIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.successSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  exportSuccessTitle: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(19),
+    lineHeight: layout.s(25),
+    textAlign: 'center',
+  },
+  exportSuccessDescription: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: layout.s(13),
+    lineHeight: layout.s(19),
+    textAlign: 'center',
+  },
+  exportSuccessPathBox: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  exportSuccessPathText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
     fontSize: 12,
     lineHeight: 17,
   },
@@ -2912,6 +3785,40 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderTopColor: colors.border,
     paddingTop: 8,
     gap: 2,
+  },
+  updateActionButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  updateActionLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  updateActionIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateActionText: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+    lineHeight: 19,
   },
   aboutInfoRow: {
     flexDirection: 'row',
@@ -2978,9 +3885,14 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     width: layout.s(36),
     height: layout.s(36),
     borderRadius: Theme.radius.full,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   closeButtonPressed: {
     backgroundColor: colors.border,
@@ -3068,6 +3980,9 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   modalScrollContent: {
     paddingBottom: 2,
   },
+  timePickerCloseButton: {
+    backgroundColor: colors.surfaceMuted,
+  },
   profileCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -3075,6 +3990,11 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderColor: colors.border,
     padding: layout.s(14),
     gap: layout.s(16),
+    elevation: Theme.shadow.card.elevation,
+    shadowColor: Theme.shadow.card.color,
+    shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },
+    shadowOpacity: Theme.shadow.card.opacity,
+    shadowRadius: Theme.shadow.card.radius,
   },
   profileTitle: {
     color: colors.text,

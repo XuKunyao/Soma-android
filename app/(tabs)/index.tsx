@@ -19,9 +19,12 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
@@ -38,8 +41,8 @@ export default function HomeScreen() {
   const { state, addWater, deleteLog } = useWater();
   const { todayLogs, todayTotal, settings, isLoaded } = state;
   const copy = settings.language === 'en'
-    ? { completed: 'Today\'s goal is complete', add: 'Drank a glass', logs: 'Today\'s records' }
-    : { completed: '今日目标已完成', add: '喝了一杯', logs: '今日记录' };
+    ? { completed: 'Today\'s goal is complete', add: 'Drank a glass', logs: 'Today\'s records', added: 'Recorded' }
+    : { completed: '今日目标已完成', add: '喝了一杯', logs: '今日记录', added: '已记录' };
   const openLogActionRef = React.useRef<SwipeableMethods | null>(null);
 
   const closeOpenLogAction = React.useCallback(() => {
@@ -54,6 +57,15 @@ export default function HomeScreen() {
 
     openLogActionRef.current = swipeable;
   }, []);
+
+  const handleAddWater = React.useCallback(() => {
+    closeOpenLogAction();
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(`${copy.added} ${settings.cupSize}ml`, ToastAndroid.SHORT);
+    }
+    addWater();
+  }, [addWater, closeOpenLogAction, copy.added, settings.cupSize]);
 
   // 数据加载中时显示空白（启动屏仍然可见）
   if (!isLoaded) {
@@ -90,10 +102,7 @@ export default function HomeScreen() {
           styles.addButton,
           pressed && styles.addButtonPressed,
         ]}
-        onPress={() => {
-          closeOpenLogAction();
-          addWater();
-        }}
+        onPress={handleAddWater}
       >
         <Feather name="plus" size={19} color={colors.surface} />
         <Text style={styles.addButtonText}>{copy.add} ({settings.cupSize}ml)</Text>
