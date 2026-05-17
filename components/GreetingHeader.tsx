@@ -8,17 +8,15 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { AppState, View, StyleSheet } from 'react-native';
 import { AppText as Text } from '@/components/fixed-scale-text';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import type { LanguagePreference } from '@/utils/storage';
 
-/** 根据小时数返回问候语 */
-function getGreeting(language: LanguagePreference): { text: string; subtitle: string } {
-  const hour = new Date().getHours();
-
+/** 根据手机当前小时数返回问候语 */
+function getGreeting(language: LanguagePreference, hour: number): { text: string; subtitle: string } {
   const greetings = language === 'en'
     ? {
       morning: { text: 'Good morning', subtitle: 'A new day can begin gently' },
@@ -48,7 +46,26 @@ export function GreetingHeader() {
   const colors = useThemeColors();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state } = useWater();
-  const { text, subtitle } = getGreeting(state.settings.language);
+  const [currentHour, setCurrentHour] = React.useState(() => new Date().getHours());
+  const { text, subtitle } = getGreeting(state.settings.language, currentHour);
+
+  React.useEffect(() => {
+    const syncHour = () => {
+      setCurrentHour(new Date().getHours());
+    };
+
+    const timer = setInterval(syncHour, 60 * 1000);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncHour();
+      }
+    });
+
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <View style={styles.container}>

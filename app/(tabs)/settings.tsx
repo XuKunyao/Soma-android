@@ -164,6 +164,7 @@ const BASE_WEIGHT_SLOPE = 14;
 const HYDRATION_GOAL_IMAGE = require('../../assets/images/hydration-goal-illustration.png');
 const MODAL_ENTER_TIMING = { duration: 360, easing: Easing.out(Easing.cubic) };
 const MODAL_EXIT_TIMING = { duration: 220, easing: Easing.in(Easing.cubic) };
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'high';
 type SexProfile = 'unspecified' | 'female' | 'male';
@@ -172,7 +173,7 @@ type PressableStyle = React.ComponentProps<typeof Pressable>['style'];
 type SettingsLayout = ReturnType<typeof createSettingsLayout>;
 type IntervalUnit = 'min' | 'hour';
 type TimePickerTarget = 'quietStart' | 'quietEnd' | 'reminderTime';
-type SystemSettingsSection = 'preferences' | 'permissions' | 'data' | 'about';
+type SystemSettingsSection = 'preferences' | 'records' | 'permissions' | 'data' | 'about';
 
 type SoftPressableProps = Omit<React.ComponentProps<typeof Pressable>, 'style'> & {
   style?: PressableStyle;
@@ -263,6 +264,9 @@ function createSettingsLayout(width: number) {
     pagePadding: compact ? 18 : 24,
     cardPadding: s(20),
     cardGap: s(16),
+    sectionGap: s(14),
+    titleGap: s(5),
+    textToControlGap: s(12),
     modalPadding: compact ? 14 : 20,
     modalCardPadding: s(18),
     chipPaddingHorizontal: s(16),
@@ -361,6 +365,55 @@ function readStringField(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatSettingsDate(dateKey: string, language: 'zh' | 'en'): string {
+  if (!DATE_KEY_PATTERN.test(dateKey)) {
+    return language === 'en' ? 'Not set' : '未设置';
+  }
+
+  const [year, month, day] = dateKey.split('-').map(Number);
+
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(year, month - 1, day));
+  }
+
+  return `${year}年${month}月${day}日`;
+}
+
+function splitDateKey(dateKey: string): { year: number; month: number; day: number } {
+  if (!DATE_KEY_PATTERN.test(dateKey)) {
+    const today = new Date();
+    return {
+      year: today.getFullYear(),
+      month: today.getMonth() + 1,
+      day: today.getDate(),
+    };
+  }
+
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return { year, month, day };
+}
+
+function toDateValue(year: number, month: number, day: number): string {
+  const maxDay = new Date(year, month, 0).getDate();
+  return `${year}-${String(month).padStart(2, '0')}-${String(Math.min(day, maxDay)).padStart(2, '0')}`;
+}
+
+function addCalendarMonths(year: number, month: number, offset: number): { year: number; month: number } {
+  const date = new Date(year, month - 1 + offset, 1);
+  return { year: date.getFullYear(), month: date.getMonth() + 1 };
+}
+
 function readNumberField(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -407,6 +460,19 @@ function parseUpdatePayload(payload: Record<string, unknown>) {
     downloadUrl,
     releaseNotes,
   };
+}
+
+function toGithubReleaseUrl(apiUrl: string): string {
+  const match = apiUrl.match(/^https:\/\/api\.github\.com\/repos\/([^/]+)\/([^/]+)\/releases\/latest/i);
+  if (!match) {
+    return apiUrl;
+  }
+
+  return `https://github.com/${match[1]}/${match[2]}/releases`;
+}
+
+function formatGithubReleaseUrlForMessage(url: string): string {
+  return url.replace(/^https:\/\/github\.com\/([^/]+)\//i, 'https://github.com/$1/\n');
 }
 
 /** 滚轮式时间选择列 — 中心位置始终为选中项，支持循环滚动 */
@@ -900,19 +966,36 @@ export default function SettingsScreen() {
   const [timePickerTarget, setTimePickerTarget] = React.useState<TimePickerTarget | null>(null);
   const [timePickerHour, setTimePickerHour] = React.useState(9);
   const [timePickerMinute, setTimePickerMinute] = React.useState(0);
+  const [isUsageDatePickerVisible, setIsUsageDatePickerVisible] = React.useState(false);
+  const [usageDatePickerYear, setUsageDatePickerYear] = React.useState(() => new Date().getFullYear());
+  const [usageDatePickerMonth, setUsageDatePickerMonth] = React.useState(1);
+  const [usageDatePickerDay, setUsageDatePickerDay] = React.useState(1);
   const [isGoalModalVisible, setIsGoalModalVisible] = React.useState(false);
+  const [isCupModalVisible, setIsCupModalVisible] = React.useState(false);
+  const [isReminderModalVisible, setIsReminderModalVisible] = React.useState(false);
   const [isExactTimeModalVisible, setIsExactTimeModalVisible] = React.useState(false);
   const goalModalProgress = useSharedValue(0);
+  const cupModalProgress = useSharedValue(0);
+  const reminderModalProgress = useSharedValue(0);
   const exactTimeModalProgress = useSharedValue(0);
   const [isSystemModalVisible, setIsSystemModalVisible] = React.useState(false);
   const systemModalProgress = useSharedValue(0);
   const [systemDetailSection, setSystemDetailSection] = React.useState<SystemSettingsSection | null>(null);
   const [isExportSuccessModalVisible, setIsExportSuccessModalVisible] = React.useState(false);
   const exportSuccessModalProgress = useSharedValue(0);
+  const [isUpdateResultModalVisible, setIsUpdateResultModalVisible] = React.useState(false);
+  const updateResultModalProgress = useSharedValue(0);
   const [exportStatus, setExportStatus] = React.useState('');
   const [isExportActionReady, setIsExportActionReady] = React.useState(false);
   const [lastExportPath, setLastExportPath] = React.useState('');
   const [isCheckingUpdate, setIsCheckingUpdate] = React.useState(false);
+  const [updateResult, setUpdateResult] = React.useState<{
+    title: string;
+    message: string;
+    downloadUrl?: string;
+    status?: 'success' | 'error' | 'update';
+  } | null>(null);
+  const [usageStartDateInput, setUsageStartDateInput] = React.useState(settings.usageStartDate || '');
   const [weightKg, setWeightKg] = React.useState('60');
   const [activityLevel, setActivityLevel] = React.useState<ActivityLevel>('sedentary');
   const [sexProfile, setSexProfile] = React.useState<SexProfile>('unspecified');
@@ -920,6 +1003,11 @@ export default function SettingsScreen() {
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const appVersionCode = Constants.expoConfig?.android?.versionCode ?? 0;
   const updateCheckUrl = readStringField(Constants.expoConfig?.extra?.updateCheckUrl);
+  const updateReleaseUrl = React.useMemo(() => toGithubReleaseUrl(updateCheckUrl), [updateCheckUrl]);
+  const updateReleaseUrlForMessage = React.useMemo(
+    () => formatGithubReleaseUrlForMessage(updateReleaseUrl),
+    [updateReleaseUrl],
+  );
   const androidPackageName = Constants.expoConfig?.android?.package ?? 'com.xukunyao.soma';
   const language = settings.language;
   const isEnglish = language === 'en';
@@ -936,10 +1024,16 @@ export default function SettingsScreen() {
   ].join('\n');
   const animateExactTimeModalOut = useModalEntrance(isExactTimeModalVisible, exactTimeModalProgress);
   const animateGoalModalOut = useModalEntrance(isGoalModalVisible, goalModalProgress);
+  const animateCupModalOut = useModalEntrance(isCupModalVisible, cupModalProgress);
+  const animateReminderModalOut = useModalEntrance(isReminderModalVisible, reminderModalProgress);
   const animateSystemModalOut = useModalEntrance(isSystemModalVisible, systemModalProgress);
   const animateExportSuccessModalOut = useModalEntrance(
     isExportSuccessModalVisible,
     exportSuccessModalProgress,
+  );
+  const animateUpdateResultModalOut = useModalEntrance(
+    isUpdateResultModalVisible,
+    updateResultModalProgress,
   );
   const exactTimeModalBackdropStyle = useAnimatedStyle(() => ({
     opacity: exactTimeModalProgress.value,
@@ -963,6 +1057,34 @@ export default function SettingsScreen() {
     transform: [{
       translateY: interpolate(
         goalModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
+  const cupModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: cupModalProgress.value,
+  }));
+  const cupModalCardStyle = useAnimatedStyle(() => ({
+    opacity: cupModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        cupModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
+  const reminderModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: reminderModalProgress.value,
+  }));
+  const reminderModalCardStyle = useAnimatedStyle(() => ({
+    opacity: reminderModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        reminderModalProgress.value,
         [0, 1],
         [18, 0],
         Extrapolation.CLAMP,
@@ -997,6 +1119,20 @@ export default function SettingsScreen() {
       ),
     }],
   }));
+  const updateResultModalBackdropStyle = useAnimatedStyle(() => ({
+    opacity: updateResultModalProgress.value,
+  }));
+  const updateResultModalCardStyle = useAnimatedStyle(() => ({
+    opacity: updateResultModalProgress.value,
+    transform: [{
+      translateY: interpolate(
+        updateResultModalProgress.value,
+        [0, 1],
+        [18, 0],
+        Extrapolation.CLAMP,
+      ),
+    }],
+  }));
   const openExactTimeModal = React.useCallback(() => {
     exactTimeModalProgress.value = 0;
     setIsExactTimeModalVisible(true);
@@ -1017,6 +1153,26 @@ export default function SettingsScreen() {
   const closeGoalModal = React.useCallback(() => {
     animateGoalModalOut(hideGoalModal);
   }, [animateGoalModalOut, hideGoalModal]);
+  const openCupModal = React.useCallback(() => {
+    cupModalProgress.value = 0;
+    setIsCupModalVisible(true);
+  }, [cupModalProgress]);
+  const hideCupModal = React.useCallback(() => {
+    setIsCupModalVisible(false);
+  }, []);
+  const closeCupModal = React.useCallback(() => {
+    animateCupModalOut(hideCupModal);
+  }, [animateCupModalOut, hideCupModal]);
+  const openReminderModal = React.useCallback(() => {
+    reminderModalProgress.value = 0;
+    setIsReminderModalVisible(true);
+  }, [reminderModalProgress]);
+  const hideReminderModal = React.useCallback(() => {
+    setIsReminderModalVisible(false);
+  }, []);
+  const closeReminderModal = React.useCallback(() => {
+    animateReminderModalOut(hideReminderModal);
+  }, [animateReminderModalOut, hideReminderModal]);
   const openSystemSettings = React.useCallback(() => {
     systemModalProgress.value = 0;
     setSystemDetailSection(null);
@@ -1039,18 +1195,42 @@ export default function SettingsScreen() {
   const closeExportSuccessModal = React.useCallback(() => {
     animateExportSuccessModalOut(hideExportSuccessModal);
   }, [animateExportSuccessModalOut, hideExportSuccessModal]);
+  const openUpdateResultModal = React.useCallback((nextResult: {
+    title: string;
+    message: string;
+    downloadUrl?: string;
+    status?: 'success' | 'error' | 'update';
+  }) => {
+    updateResultModalProgress.value = 0;
+    setUpdateResult(nextResult);
+    setIsUpdateResultModalVisible(true);
+  }, [updateResultModalProgress]);
+  const hideUpdateResultModal = React.useCallback(() => {
+    setIsUpdateResultModalVisible(false);
+  }, []);
+  const closeUpdateResultModal = React.useCallback(() => {
+    animateUpdateResultModalOut(hideUpdateResultModal);
+  }, [animateUpdateResultModalOut, hideUpdateResultModal]);
   const copy = isEnglish
     ? {
       pageTitle: 'Settings',
       dailyGoalTitle: 'Daily goal',
       customGoal: 'Custom goal',
       dailyGoalDescription: 'Estimate a goal from body weight and activity',
+      presetGoalTitle: 'Common goals',
+      selectedGoalSummary: '{goal} ml per day',
       cupSizeTitle: 'Glass size',
       cupSizeDescription: 'Amount recorded when you tap “Drank a glass”.',
+      selectedCupSummary: '{size} ml each time',
       customCup: 'Custom:',
       apply: 'Apply',
       reminderTitle: 'Reminder notifications',
       reminderDescription: 'Receive quiet hydration reminders.',
+      reminderSummaryOff: 'Off',
+      reminderSummaryExact: '{count} exact times',
+      reminderSummaryInterval: 'Every {interval}',
+      reminderSummaryQuiet: 'Quiet {start}-{end}',
+      reminderSummaryNoQuiet: 'No quiet hours',
       quietTitle: 'Quiet hours:',
       quietDescription: 'No hydration reminders during this time.',
       reminderDetailTitle: 'Reminder settings',
@@ -1079,6 +1259,8 @@ export default function SettingsScreen() {
       systemEntryDescription: 'Language, appearance, backup, etc.',
       preferenceTitle: 'Language & appearance',
       preferenceDescription: 'Display language and visual theme.',
+      recordsSectionTitle: 'Record statistics',
+      recordsSectionDescription: 'Start date and history calculation rules.',
       permissionTitle: 'Notifications & background',
       permissionDescription: 'Notification, background activity, and startup guides.',
       dataSectionTitle: 'Data & backups',
@@ -1101,6 +1283,15 @@ export default function SettingsScreen() {
       appearance: 'Appearance',
       dataTitle: 'Data storage',
       dataDescription: 'Records are stored inside Soma. Choose a backup location and export a local JSON file.',
+      usageStartDateTitle: 'Start date',
+      usageStartDateDescription: 'Records before this date are not counted as missing goals.',
+      usageStartDatePlaceholder: 'YYYY-MM-DD',
+      usageStartDateToday: 'Today',
+      usageStartDateClear: 'Clear',
+      usageStartDateInvalid: 'Use YYYY-MM-DD.',
+      usageStartDateSelect: 'Select date',
+      previousMonth: 'Previous month',
+      nextMonth: 'Next month',
       exportPath: 'Backup location',
       exportPathEmpty: 'No backup location selected',
       exportPathSelected: 'Backup location selected',
@@ -1136,10 +1327,12 @@ export default function SettingsScreen() {
       updateNeedsConfig: 'No update source is configured yet.',
       updateInvalid: 'The update information is not available right now.',
       updateNetworkFailed: 'Unable to check for updates. Please try again later.',
+      updateGithubAddress: 'GitHub Releases',
       updateAvailable: 'A new version is available: v{version}.',
       updateUpToDate: 'You are already on the latest version.',
       updateOpen: 'Open',
       updateLater: 'Later',
+      updateConfirm: 'Done',
       currentName: '包子小方同学',
       modalTitle: 'Custom hydration goal',
       modalDescription: 'Estimate a water goal for today’s records and reminders.',
@@ -1162,12 +1355,20 @@ export default function SettingsScreen() {
       dailyGoalTitle: '每日饮水目标',
       customGoal: '自定义目标',
       dailyGoalDescription: '根据个人体重和活动量估算目标',
+      presetGoalTitle: '常用目标',
+      selectedGoalSummary: '每天 {goal} ml',
       cupSizeTitle: '单次饮水量',
       cupSizeDescription: '每次点击“喝了一杯”时记录的水量',
+      selectedCupSummary: '每次记录 {size} ml',
       customCup: '自定义杯量：',
       apply: '应用',
       reminderTitle: '提醒通知',
       reminderDescription: '定期收到喝水提醒通知',
+      reminderSummaryOff: '已关闭',
+      reminderSummaryExact: '{count} 个具体时间',
+      reminderSummaryInterval: '每 {interval}',
+      reminderSummaryQuiet: '勿扰 {start}-{end}',
+      reminderSummaryNoQuiet: '未设置勿扰',
       quietTitle: '勿扰时间段：',
       quietDescription: '这个时间段不会收到喝水提醒',
       reminderDetailTitle: '提醒设置',
@@ -1196,6 +1397,8 @@ export default function SettingsScreen() {
       systemEntryDescription: '语言、外观、备份等',
       preferenceTitle: '语言与外观',
       preferenceDescription: '显示语言、浅色/深色模式等界面偏好',
+      recordsSectionTitle: '记录统计',
+      recordsSectionDescription: '开始使用日期和历史统计口径',
       permissionTitle: '通知与后台',
       permissionDescription: '通知权限、后台活动和自启动指引',
       dataSectionTitle: '数据与备份',
@@ -1218,6 +1421,15 @@ export default function SettingsScreen() {
       appearance: '外观',
       dataTitle: '数据存储',
       dataDescription: '记录保存在 Soma 应用内部。你可以选择备份位置，并导出本地 JSON 文件',
+      usageStartDateTitle: '开始使用日期',
+      usageStartDateDescription: '历史统计会从这一天开始计算目标欠量',
+      usageStartDatePlaceholder: 'YYYY-MM-DD',
+      usageStartDateToday: '今天',
+      usageStartDateClear: '清除',
+      usageStartDateInvalid: '请使用 YYYY-MM-DD 格式。',
+      usageStartDateSelect: '选择日期',
+      previousMonth: '上个月',
+      nextMonth: '下个月',
       exportPath: '备份位置',
       exportPathEmpty: '尚未选择备份位置',
       exportPathSelected: '已选择备份位置',
@@ -1253,10 +1465,12 @@ export default function SettingsScreen() {
       updateNeedsConfig: '还没有配置更新来源。',
       updateInvalid: '暂时无法读取更新信息。',
       updateNetworkFailed: '检查更新失败，请稍后再试。',
+      updateGithubAddress: 'GitHub 地址',
       updateAvailable: '发现新版本：v{version}。',
       updateUpToDate: '当前已经是最新版本。',
       updateOpen: '打开',
       updateLater: '稍后',
+      updateConfirm: '完成',
       currentName: '包子小方同学',
       modalTitle: '自定义喝水目标',
       modalDescription: '估算适合今天记录和提醒的喝水量',
@@ -1282,6 +1496,44 @@ export default function SettingsScreen() {
     settings.reminderQuietEnd,
     settings.reminderQuietStart,
   ]);
+  React.useEffect(() => {
+    setUsageStartDateInput(settings.usageStartDate || '');
+  }, [settings.usageStartDate]);
+  const usageCalendarCells = React.useMemo(() => {
+    const firstDay = new Date(usageDatePickerYear, usageDatePickerMonth - 1, 1);
+    const leadingDays = firstDay.getDay();
+    const monthDayCount = new Date(usageDatePickerYear, usageDatePickerMonth, 0).getDate();
+    const previousMonth = addCalendarMonths(usageDatePickerYear, usageDatePickerMonth, -1);
+    const previousMonthDayCount = new Date(previousMonth.year, previousMonth.month, 0).getDate();
+
+    return Array.from({ length: 42 }, (_, index) => {
+      if (index < leadingDays) {
+        const day = previousMonthDayCount - leadingDays + index + 1;
+        return {
+          dateKey: toDateValue(previousMonth.year, previousMonth.month, day),
+          day,
+          isCurrentMonth: false,
+        };
+      }
+
+      const dayInMonth = index - leadingDays + 1;
+      if (dayInMonth <= monthDayCount) {
+        return {
+          dateKey: toDateValue(usageDatePickerYear, usageDatePickerMonth, dayInMonth),
+          day: dayInMonth,
+          isCurrentMonth: true,
+        };
+      }
+
+      const nextMonth = addCalendarMonths(usageDatePickerYear, usageDatePickerMonth, 1);
+      const day = dayInMonth - monthDayCount;
+      return {
+        dateKey: toDateValue(nextMonth.year, nextMonth.month, day),
+        day,
+        isCurrentMonth: false,
+      };
+    });
+  }, [usageDatePickerMonth, usageDatePickerYear]);
   const localizedActivityLevels = React.useMemo(
     () => ACTIVITY_LEVELS.map((option) => ({
       ...option,
@@ -1377,6 +1629,12 @@ export default function SettingsScreen() {
       description: copy.permissionDescription,
     },
     {
+      key: 'records' as const,
+      icon: 'bar-chart-2' as const,
+      title: copy.recordsSectionTitle,
+      description: copy.recordsSectionDescription,
+    },
+    {
       key: 'data' as const,
       icon: 'database' as const,
       title: copy.dataSectionTitle,
@@ -1397,6 +1655,8 @@ export default function SettingsScreen() {
     copy.permissionTitle,
     copy.preferenceDescription,
     copy.preferenceTitle,
+    copy.recordsSectionDescription,
+    copy.recordsSectionTitle,
   ]);
   const activeSystemSection = systemSections.find((section) => section.key === systemDetailSection);
   const openAppSystemSettings = async () => {
@@ -1552,7 +1812,11 @@ export default function SettingsScreen() {
 
   const checkForUpdates = async () => {
     if (!updateCheckUrl) {
-      Alert.alert(copy.updateTitle, copy.updateNeedsConfig);
+      openUpdateResultModal({
+        title: copy.updateTitle,
+        message: copy.updateNeedsConfig,
+        status: 'error',
+      });
       return;
     }
 
@@ -1574,7 +1838,11 @@ export default function SettingsScreen() {
       } = parseUpdatePayload(payload);
 
       if (!latestVersion && latestVersionCode === null) {
-        Alert.alert(copy.updateTitle, copy.updateInvalid);
+        openUpdateResultModal({
+          title: copy.updateTitle,
+          message: `${copy.updateInvalid}\n\n${copy.updateGithubAddress}: ${updateReleaseUrlForMessage}`,
+          status: 'error',
+        });
         return;
       }
 
@@ -1582,7 +1850,11 @@ export default function SettingsScreen() {
       const hasNewerVersionName = latestVersion ? compareVersionStrings(appVersion, latestVersion) > 0 : false;
 
       if (!hasNewerVersionCode && !hasNewerVersionName) {
-        Alert.alert(copy.updateTitle, copy.updateUpToDate);
+        openUpdateResultModal({
+          title: copy.updateTitle,
+          message: copy.updateUpToDate,
+          status: 'success',
+        });
         return;
       }
 
@@ -1591,16 +1863,19 @@ export default function SettingsScreen() {
         copy.updateAvailable.replace('{version}', versionText),
         releaseNotes,
       ].filter(Boolean).join('\n\n');
-      const actions = downloadUrl
-        ? [
-          { text: copy.updateLater, style: 'cancel' as const },
-          { text: copy.updateOpen, onPress: () => Linking.openURL(downloadUrl) },
-        ]
-        : [{ text: copy.updateLater }];
-
-      Alert.alert(copy.updateTitle, message, actions);
+      openUpdateResultModal({
+        title: copy.updateTitle,
+        message,
+        downloadUrl,
+        status: 'update',
+      });
     } catch {
-      Alert.alert(copy.updateTitle, copy.updateNetworkFailed);
+      openUpdateResultModal({
+        title: copy.updateTitle,
+        message: `${copy.updateNetworkFailed}\n\n${copy.updateGithubAddress}: ${updateReleaseUrlForMessage}`,
+        downloadUrl: updateReleaseUrl,
+        status: 'error',
+      });
     } finally {
       setIsCheckingUpdate(false);
     }
@@ -1725,6 +2000,71 @@ export default function SettingsScreen() {
   };
 
   const quietHoursEnabled = !!(settings.reminderQuietStart && settings.reminderQuietEnd);
+  const exactReminderCount = Array.from(new Set([
+    ...settings.reminderTimes,
+    ...(settings.reminderDisabledTimes || []),
+  ])).length;
+  const reminderSummary = !settings.reminderEnabled
+    ? copy.reminderSummaryOff
+    : exactReminderCount > 0
+      ? copy.reminderSummaryExact.replace('{count}', String(exactReminderCount))
+      : copy.reminderSummaryInterval.replace('{interval}', formatIntervalLabel(settings.reminderInterval, language));
+  const reminderQuietSummary = quietHoursEnabled
+    ? copy.reminderSummaryQuiet
+      .replace('{start}', settings.reminderQuietStart)
+      .replace('{end}', settings.reminderQuietEnd)
+    : copy.reminderSummaryNoQuiet;
+  const usageStartDateValue = settings.usageStartDate || '';
+  const usageStartDateLabel = formatSettingsDate(usageStartDateValue, language);
+  const todayUsageDateKey = toLocalDateKey(new Date());
+  const currentUsageMonthKey = toDateValue(new Date().getFullYear(), new Date().getMonth() + 1, 1);
+  const nextUsageDatePickerMonth = addCalendarMonths(usageDatePickerYear, usageDatePickerMonth, 1);
+  const canMoveUsageDatePickerNext = toDateValue(nextUsageDatePickerMonth.year, nextUsageDatePickerMonth.month, 1) <= currentUsageMonthKey;
+  const isUsageStartDateInputValid = usageStartDateInput === ''
+    || (DATE_KEY_PATTERN.test(usageStartDateInput) && usageStartDateInput <= todayUsageDateKey);
+  const hasUsageStartDateChange = DATE_KEY_PATTERN.test(usageStartDateInput)
+    && usageStartDateInput <= todayUsageDateKey
+    && usageStartDateInput !== (settings.usageStartDate || '');
+
+  const applyUsageStartDate = React.useCallback((dateKey: string) => {
+    setUsageStartDateInput(dateKey);
+    updateSettings({ usageStartDate: dateKey });
+  }, [updateSettings]);
+
+  const clearUsageStartDate = React.useCallback(() => {
+    setUsageStartDateInput('');
+    updateSettings({ usageStartDate: '' });
+  }, [updateSettings]);
+
+  const openUsageDatePicker = React.useCallback(() => {
+    const nextDate = splitDateKey(usageStartDateInput || settings.usageStartDate || toLocalDateKey(new Date()));
+    setUsageDatePickerYear(nextDate.year);
+    setUsageDatePickerMonth(nextDate.month);
+    setUsageDatePickerDay(nextDate.day);
+    setIsUsageDatePickerVisible(true);
+  }, [settings.usageStartDate, usageStartDateInput]);
+
+  const moveUsageDatePickerMonth = React.useCallback((offset: -1 | 1) => {
+    const next = addCalendarMonths(usageDatePickerYear, usageDatePickerMonth, offset);
+    if (offset > 0 && toDateValue(next.year, next.month, 1) > toDateValue(new Date().getFullYear(), new Date().getMonth() + 1, 1)) {
+      return;
+    }
+
+    setUsageDatePickerYear(next.year);
+    setUsageDatePickerMonth(next.month);
+  }, [usageDatePickerMonth, usageDatePickerYear]);
+
+  const selectUsageDate = React.useCallback((dateKey: string) => {
+    const nextDate = splitDateKey(dateKey);
+    setUsageDatePickerYear(nextDate.year);
+    setUsageDatePickerMonth(nextDate.month);
+    setUsageDatePickerDay(nextDate.day);
+    setUsageStartDateInput(dateKey);
+    setIsUsageDatePickerVisible(false);
+  }, []);
+  const customReminderIntervalPlaceholder = appliedCustomInterval
+    ? String(customReminderIntervalUnit === 'hour' ? Math.max(1, Math.round(appliedCustomInterval / 60)) : appliedCustomInterval)
+    : (customReminderIntervalUnit === 'hour' ? '1' : '30');
   const toggleQuietHours = (enabled: boolean) => {
     if (enabled) {
       const start = quietStartInput || '22:00';
@@ -1747,236 +2087,76 @@ export default function SettingsScreen() {
       {/* 页面标题 */}
       <Text style={styles.pageTitle}>{copy.pageTitle}</Text>
 
-      {/* 每日饮水目标 */}
-      <View style={styles.card}>
-        <View style={styles.settingHeader}>
-          <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.dailyGoalTitle}</Text>
-          <SoftPressable
-            onPress={openGoalModal}
-            style={({ pressed }) => [
-              styles.estimatePill,
-              pressed && styles.estimateButtonPressed,
-            ]}
-          >
-            <Text style={styles.estimatePillText}>{copy.customGoal}</Text>
-            <Feather name="chevron-right" size={13} color={colors.primary} />
-          </SoftPressable>
+      <SoftPressable
+        onPress={openGoalModal}
+        style={({ pressed }) => [
+          styles.card,
+          styles.summaryEntryCard,
+          pressed && styles.estimateButtonPressed,
+        ]}
+      >
+        <View style={styles.summaryEntryLeft}>
+          <View style={styles.summaryEntryIcon}>
+            <Feather name="target" size={17} color={colors.primary} />
+          </View>
+          <View style={styles.summaryEntryCopy}>
+            <Text style={[styles.cardTitle, { marginBottom: 4 }]}>{copy.dailyGoalTitle}</Text>
+            <Text style={styles.summaryEntryDescription}>
+              {copy.selectedGoalSummary.replace('{goal}', String(settings.dailyGoal))}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.cardDescription}>
-          {copy.dailyGoalDescription}
-        </Text>
-        <View style={styles.chipGroup}>
-          {dailyGoalOptions.map((goal) => (
-            <Chip
-              key={goal}
-              label={DAILY_GOALS.includes(goal) ? `${goal} ml` : (isEnglish ? `Custom ${goal}ml` : `自定义 ${goal}ml`)}
-              selected={settings.dailyGoal === goal}
-              onPress={() => updateSettings({ dailyGoal: goal })}
-            />
-          ))}
+        <View style={styles.summaryEntryRight}>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
         </View>
-      </View>
+      </SoftPressable>
 
-      {/* 单次饮水量 */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{copy.cupSizeTitle}</Text>
-        <Text style={styles.cardDescription}>
-          {copy.cupSizeDescription}
-        </Text>
-        <View style={styles.chipGroup}>
-          {cupSizeOptions.map((size) => (
-            <Chip
-              key={size}
-              label={CUP_SIZES.includes(size) ? `${size} ml` : (isEnglish ? `Custom ${size}ml` : `自定义 ${size}ml`)}
-              selected={settings.cupSize === size}
-              onPress={() => selectPresetCupSize(size)}
-            />
-          ))}
-        </View>
-        <View style={styles.customSection}>
-          <View style={styles.customCopy}>
-            <Text style={styles.customTitle}>{copy.customCup}</Text>
+      <SoftPressable
+        onPress={openCupModal}
+        style={({ pressed }) => [
+          styles.card,
+          styles.summaryEntryCard,
+          pressed && styles.estimateButtonPressed,
+        ]}
+      >
+        <View style={styles.summaryEntryLeft}>
+          <View style={styles.summaryEntryIcon}>
+            <Feather name="coffee" size={17} color={colors.primary} />
           </View>
-          <View style={styles.customControl}>
-            <View style={styles.customCupInputShell}>
-              <TextInput
-                value={customCupSize}
-                onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
-                keyboardType="number-pad"
-                placeholder={appliedCustomCupSize ? String(appliedCustomCupSize) : "250"}
-                placeholderTextColor={colors.textSecondary + '80'}
-                style={styles.customInput}
-              />
-              <Text style={styles.inputUnit}>ml</Text>
-            </View>
-            <SoftPressable
-              onPress={saveCustomCupSize}
-              disabled={!isCustomCupSizeValid}
-              style={({ pressed }) => [
-                styles.saveButton,
-                pressed && isCustomCupSizeValid && styles.saveButtonPressed,
-                !isCustomCupSizeValid && styles.saveButtonDisabled,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.saveButtonText,
-                  !isCustomCupSizeValid && styles.saveButtonTextDisabled,
-                ]}
-              >
-                {copy.apply}
-              </Text>
-            </SoftPressable>
+          <View style={styles.summaryEntryCopy}>
+            <Text style={[styles.cardTitle, { marginBottom: 4 }]}>{copy.cupSizeTitle}</Text>
+            <Text style={styles.summaryEntryDescription}>
+              {copy.selectedCupSummary.replace('{size}', String(settings.cupSize))}
+            </Text>
           </View>
         </View>
-      </View>
+        <View style={styles.summaryEntryRight}>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+        </View>
+      </SoftPressable>
 
-      {/* 提醒通知 */}
-      <View style={styles.card}>
-        <View style={styles.settingHeader}>
-          <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
-          <SoftPressable
-            onPress={openExactTimeModal}
-            style={({ pressed }) => [
-              styles.estimatePill,
-              pressed && styles.estimateButtonPressed,
-            ]}
-          >
-            <Text style={styles.estimatePillText}>{copy.exactTimeTitle}</Text>
-            <Feather name="chevron-right" size={13} color={colors.primary} />
-          </SoftPressable>
-        </View>
-        <Text style={styles.cardDescription}>
-          {copy.reminderDescription}
-        </Text>
-        <View style={styles.chipGroup}>
-          {reminderIntervalOptions.map((interval) => {
-            const isSelected = interval.value === 0
-              ? !settings.reminderEnabled
-              : settings.reminderEnabled && settings.reminderInterval === interval.value;
-            return (
-              <Chip
-                key={interval.value}
-                label={isEnglish ? interval.labelEn : interval.label}
-                selected={isSelected}
-                onPress={() => {
-                  if (interval.value === 0) {
-                    updateSettings({ reminderEnabled: false, reminderTimes: [] });
-                  } else {
-                    updateSettings({
-                      reminderEnabled: true,
-                      reminderInterval: interval.value,
-                    });
-                  }
-                  setAppliedCustomInterval(null);
-                  setCustomReminderIntervalInput('');
-                }}
-              />
-            );
-          })}
-        </View>
-        {/* 自定义间隔 */}
-        <View style={styles.customSection}>
-          <View style={styles.customCopy}>
-            <Text style={styles.customTitle}>{copy.customIntervalTitle}</Text>
+      <SoftPressable
+        onPress={openReminderModal}
+        style={({ pressed }) => [
+          styles.card,
+          styles.summaryEntryCard,
+          pressed && styles.estimateButtonPressed,
+        ]}
+      >
+        <View style={styles.summaryEntryLeft}>
+          <View style={styles.summaryEntryIcon}>
+            <Feather name="bell" size={17} color={colors.primary} />
           </View>
-          <View style={styles.customControl}>
-            <View style={styles.customIntervalInputShell}>
-              <TextInput
-                value={customReminderIntervalInput}
-                onChangeText={(value) => setCustomReminderIntervalInput(
-                  value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
-                )}
-                keyboardType="number-pad"
-                maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
-                placeholder={appliedCustomInterval ? String(customReminderIntervalUnit === 'hour' ? appliedCustomInterval / 60 : appliedCustomInterval) : "30"}
-                placeholderTextColor={colors.textSecondary + '80'}
-                style={styles.customInput}
-              />
-              <SoftPressable
-                onPress={toggleCustomReminderIntervalUnit}
-                style={({ pressed }) => [
-                  styles.intervalUnitInline,
-                  pressed && styles.estimateButtonPressed,
-                ]}
-              >
-                <Text style={styles.inputUnit}>
-                  {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
-                </Text>
-                <Feather name="chevron-down" size={14} color={colors.textSecondary} style={{ marginTop: 1 }} />
-              </SoftPressable>
-            </View>
-            <SoftPressable
-              onPress={applyCustomInterval}
-              disabled={!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput}
-              style={({ pressed }) => [
-                styles.saveButton,
-                pressed && isCustomReminderIntervalValid && hasCustomReminderIntervalInput && styles.saveButtonPressed,
-                (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonDisabled,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.saveButtonText,
-                  (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonTextDisabled,
-                ]}
-              >
-                {copy.apply}
-              </Text>
-            </SoftPressable>
+          <View style={styles.summaryEntryCopy}>
+            <Text style={[styles.cardTitle, { marginBottom: 4 }]}>{copy.reminderTitle}</Text>
+            <Text style={styles.summaryEntryDescription}>{reminderSummary}</Text>
+            <Text style={styles.summaryEntryMeta}>{reminderQuietSummary}</Text>
           </View>
-          {!isCustomReminderIntervalValid ? (
-            <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
-          ) : null}
         </View>
-
-        {/* 勿扰时间段 */}
-        <Text style={styles.inlineSectionTitle}>{copy.quietTitle}</Text>
-        <View style={styles.quietInlineRow}>
-          <View style={styles.quietInlineLeft}>
-            <View style={styles.quietInlineIcon}>
-              <Feather name="moon" size={17} color={colors.primary} />
-            </View>
-            <View style={styles.quietInlineCopy}>
-              <View style={styles.quietInlineTimeRow}>
-                {quietHoursEnabled ? (
-                  <>
-                    <SoftPressable
-                      onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
-                      style={({ pressed }) => [
-                        styles.quietInlineTimeButton,
-                        pressed && styles.estimateButtonPressed,
-                      ]}
-                    >
-                      <Text style={styles.quietInlineTimeText}>{quietStartInput || '22:00'}</Text>
-                    </SoftPressable>
-                    <Text style={styles.quietInlineTimeSep}>–</Text>
-                    <SoftPressable
-                      onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
-                      style={({ pressed }) => [
-                        styles.quietInlineTimeButton,
-                        pressed && styles.estimateButtonPressed,
-                      ]}
-                    >
-                      <Text style={styles.quietInlineTimeText}>{quietEndInput || '08:00'}</Text>
-                    </SoftPressable>
-                  </>
-                ) : (
-                  <Text style={styles.quietInlineDisabledText}>{isEnglish ? 'Not set' : '未设置'}</Text>
-                )}
-              </View>
-              <Text style={styles.quietInlineDesc}>{copy.quietDescription}</Text>
-            </View>
-          </View>
-          <CustomSwitch
-            value={quietHoursEnabled}
-            onValueChange={toggleQuietHours}
-            trackInactive={colors.trackBackground}
-            trackActive={colors.primary}
-            thumbColor={colors.surface}
-          />
+        <View style={styles.summaryEntryRight}>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
         </View>
-      </View>
+      </SoftPressable>
       {/* 系统设置 */}
       <SoftPressable
         onPress={openSystemSettings}
@@ -2189,8 +2369,25 @@ export default function SettingsScreen() {
 
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScrollContent}
+              contentContainerStyle={styles.goalModalScrollContent}
             >
+              <View style={[styles.profileCard, styles.modalPresetCard]}>
+                <View style={styles.profileTitleRow}>
+                  <Feather name="target" size={16} color={colors.textSecondary} />
+                  <Text style={styles.profileTitle}>{copy.presetGoalTitle}</Text>
+                </View>
+                <View style={styles.chipGroup}>
+                  {dailyGoalOptions.map((goal) => (
+                    <Chip
+                      key={goal}
+                      label={DAILY_GOALS.includes(goal) ? `${goal} ml` : (isEnglish ? `Custom ${goal}ml` : `自定义 ${goal}ml`)}
+                      selected={settings.dailyGoal === goal}
+                      onPress={() => updateSettings({ dailyGoal: goal })}
+                    />
+                  ))}
+                </View>
+              </View>
+
               <View style={styles.profileCard}>
                 <View style={styles.inlineChoiceBlock}>
                   <View style={styles.profileTitleRow}>
@@ -2323,6 +2520,305 @@ export default function SettingsScreen() {
         </KeyboardAvoidingView>
       </Modal>
       <Modal
+        visible={isCupModalVisible}
+        transparent
+        animationType="none"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={closeCupModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalRoot}
+        >
+          <Animated.View style={[styles.modalBackdrop, cupModalBackdropStyle]}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closeCupModal}
+            />
+          </Animated.View>
+          <Animated.View
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
+            style={[
+              styles.modalCard,
+              styles.settingsSubpageModalCard,
+              cupModalCardStyle,
+              { marginTop: Math.max(insets.top + 20, 36) },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>{copy.cupSizeTitle}</Text>
+                <Text style={styles.modalDescription}>{copy.cupSizeDescription}</Text>
+              </View>
+              <SoftPressable
+                onPress={closeCupModal}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={21} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.profileCard}>
+                <View style={styles.chipGroup}>
+                  {cupSizeOptions.map((size) => (
+                    <Chip
+                      key={size}
+                      label={CUP_SIZES.includes(size) ? `${size} ml` : (isEnglish ? `Custom ${size}ml` : `自定义 ${size}ml`)}
+                      selected={settings.cupSize === size}
+                      onPress={() => selectPresetCupSize(size)}
+                    />
+                  ))}
+                </View>
+                <View style={[styles.customSection, styles.modalCustomSection]}>
+                  <View style={styles.customCopy}>
+                    <Text style={styles.customTitle}>{copy.customCup}</Text>
+                  </View>
+                  <View style={styles.customControl}>
+                    <View style={styles.customCupInputShell}>
+                      <TextInput
+                        value={customCupSize}
+                        onChangeText={(value) => setCustomCupSize(value.replace(/[^0-9]/g, ''))}
+                        keyboardType="number-pad"
+                        placeholder={appliedCustomCupSize ? String(appliedCustomCupSize) : '250'}
+                        placeholderTextColor={colors.textSecondary + '80'}
+                        style={styles.customInput}
+                      />
+                      <Text style={styles.inputUnit}>ml</Text>
+                    </View>
+                    <SoftPressable
+                      onPress={saveCustomCupSize}
+                      disabled={!isCustomCupSizeValid}
+                      style={({ pressed }) => [
+                        styles.saveButton,
+                        pressed && isCustomCupSizeValid && styles.saveButtonPressed,
+                        !isCustomCupSizeValid && styles.saveButtonDisabled,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.saveButtonText,
+                          !isCustomCupSizeValid && styles.saveButtonTextDisabled,
+                        ]}
+                      >
+                        {copy.apply}
+                      </Text>
+                    </SoftPressable>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={isReminderModalVisible}
+        transparent
+        animationType="none"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={closeReminderModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalRoot}
+        >
+          <Animated.View style={[styles.modalBackdrop, reminderModalBackdropStyle]}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closeReminderModal}
+            />
+          </Animated.View>
+          <Animated.View
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
+            style={[
+              styles.modalCard,
+              styles.settingsSubpageModalCard,
+              reminderModalCardStyle,
+              { marginTop: Math.max(insets.top + 20, 36) },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>{copy.reminderDetailTitle}</Text>
+                <Text style={styles.modalDescription}>{copy.reminderDetailDescription}</Text>
+              </View>
+              <SoftPressable
+                onPress={closeReminderModal}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={21} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.reminderSettingsContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <View style={[styles.profileCard, styles.reminderSettingsCard]}>
+                <View style={[styles.settingHeader, styles.reminderSettingHeader]}>
+                  <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
+                  <SoftPressable
+                    onPress={openExactTimeModal}
+                    style={({ pressed }) => [
+                      styles.estimatePill,
+                      pressed && styles.estimateButtonPressed,
+                    ]}
+                  >
+                    <Text style={styles.estimatePillText}>{copy.exactTimeTitle}</Text>
+                    <Feather name="chevron-right" size={13} color={colors.primary} />
+                  </SoftPressable>
+                </View>
+                <Text style={[styles.cardDescription, styles.reminderCardDescription]}>{copy.reminderDescription}</Text>
+                <View style={styles.chipGroup}>
+                  {reminderIntervalOptions.map((interval) => {
+                    const isSelected = interval.value === 0
+                      ? !settings.reminderEnabled
+                      : settings.reminderEnabled && settings.reminderInterval === interval.value;
+                    return (
+                      <Chip
+                        key={interval.value}
+                        label={isEnglish ? interval.labelEn : interval.label}
+                        selected={isSelected}
+                        onPress={() => {
+                          if (interval.value === 0) {
+                            updateSettings({ reminderEnabled: false, reminderTimes: [] });
+                          } else {
+                            updateSettings({
+                              reminderEnabled: true,
+                              reminderInterval: interval.value,
+                            });
+                          }
+                          setAppliedCustomInterval(null);
+                          setCustomReminderIntervalInput('');
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+
+                <View style={[styles.customSection, styles.modalCustomSection]}>
+                  <View style={styles.customCopy}>
+                    <Text style={styles.customTitle}>{copy.customIntervalTitle}</Text>
+                  </View>
+                  <View style={styles.customControl}>
+                    <View style={styles.customIntervalInputShell}>
+                      <TextInput
+                        value={customReminderIntervalInput}
+                        onChangeText={(value) => setCustomReminderIntervalInput(
+                          value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
+                        )}
+                        keyboardType="number-pad"
+                        maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
+                        placeholder={customReminderIntervalPlaceholder}
+                        placeholderTextColor={colors.textSecondary + '80'}
+                        style={styles.customInput}
+                      />
+                      <SoftPressable
+                        onPress={toggleCustomReminderIntervalUnit}
+                        style={({ pressed }) => [
+                          styles.intervalUnitInline,
+                          pressed && styles.estimateButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.inputUnit}>
+                          {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
+                        </Text>
+                        <Feather name="chevron-down" size={14} color={colors.textSecondary} style={{ marginTop: 1 }} />
+                      </SoftPressable>
+                    </View>
+                    <SoftPressable
+                      onPress={applyCustomInterval}
+                      disabled={!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput}
+                      style={({ pressed }) => [
+                        styles.saveButton,
+                        pressed && isCustomReminderIntervalValid && hasCustomReminderIntervalInput && styles.saveButtonPressed,
+                        (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonDisabled,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.saveButtonText,
+                          (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonTextDisabled,
+                        ]}
+                      >
+                        {copy.apply}
+                      </Text>
+                    </SoftPressable>
+                  </View>
+                  {!isCustomReminderIntervalValid ? (
+                    <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
+                  ) : null}
+                </View>
+
+                <Text style={[styles.inlineSectionTitle, styles.reminderInlineSectionTitle]}>{copy.quietTitle}</Text>
+                <View style={styles.quietInlineRow}>
+                  <View style={styles.quietInlineLeft}>
+                    <View style={styles.quietInlineIcon}>
+                      <Feather name="moon" size={17} color={colors.primary} />
+                    </View>
+                    <View style={styles.quietInlineCopy}>
+                      <View style={styles.quietInlineTimeRow}>
+                        {quietHoursEnabled ? (
+                          <>
+                            <SoftPressable
+                              onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
+                              style={({ pressed }) => [
+                                styles.quietInlineTimeButton,
+                                pressed && styles.estimateButtonPressed,
+                              ]}
+                            >
+                              <Text style={styles.quietInlineTimeText}>{quietStartInput || '22:00'}</Text>
+                            </SoftPressable>
+                            <Text style={styles.quietInlineTimeSep}>-</Text>
+                            <SoftPressable
+                              onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
+                              style={({ pressed }) => [
+                                styles.quietInlineTimeButton,
+                                pressed && styles.estimateButtonPressed,
+                              ]}
+                            >
+                              <Text style={styles.quietInlineTimeText}>{quietEndInput || '08:00'}</Text>
+                            </SoftPressable>
+                          </>
+                        ) : (
+                          <Text style={styles.quietInlineDisabledText}>{isEnglish ? 'Not set' : '未设置'}</Text>
+                        )}
+                      </View>
+                      <Text style={styles.quietInlineDesc}>{copy.quietDescription}</Text>
+                    </View>
+                  </View>
+                  <CustomSwitch
+                    value={quietHoursEnabled}
+                    onValueChange={toggleQuietHours}
+                    trackInactive={colors.trackBackground}
+                    trackActive={colors.primary}
+                    thumbColor={colors.surface}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
+      <Modal
         visible={timePickerTarget !== null}
         transparent
         animationType="fade"
@@ -2380,6 +2876,114 @@ export default function SettingsScreen() {
             >
               <Text style={styles.modalPrimaryText}>{copy.confirmTime}</Text>
             </SoftPressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={isUsageDatePickerVisible}
+        transparent
+        animationType="fade"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setIsUsageDatePickerVisible(false)}
+      >
+        <View style={styles.timePickerRoot}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsUsageDatePickerVisible(false)}
+          />
+          <View style={styles.datePickerCard}>
+            <View style={styles.timePickerHeader}>
+              <View style={styles.timePickerHeaderLeft}>
+                <Text style={styles.timePickerTitle}>{copy.usageStartDateSelect}</Text>
+                <Text style={styles.timePickerValue}>
+                  {formatSettingsDate(toDateValue(usageDatePickerYear, usageDatePickerMonth, usageDatePickerDay), language)}
+                </Text>
+              </View>
+              <SoftPressable
+                onPress={() => setIsUsageDatePickerVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.close}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  styles.timePickerCloseButton,
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Feather name="x" size={21} color={colors.textSecondary} />
+              </SoftPressable>
+            </View>
+            <View style={styles.datePickerMonthBar}>
+              <SoftPressable
+                onPress={() => moveUsageDatePickerMonth(-1)}
+                accessibilityRole="button"
+                accessibilityLabel={copy.previousMonth}
+                style={({ pressed }) => [
+                  styles.datePickerNavButton,
+                  pressed && styles.estimateButtonPressed,
+                ]}
+              >
+                <Feather name="chevron-left" size={18} color={colors.textSecondary} />
+              </SoftPressable>
+              <Text style={styles.datePickerMonthText}>
+                {language === 'en'
+                  ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long' }).format(new Date(usageDatePickerYear, usageDatePickerMonth - 1, 1))
+                  : `${usageDatePickerYear}年${usageDatePickerMonth}月`}
+              </Text>
+              <SoftPressable
+                onPress={() => moveUsageDatePickerMonth(1)}
+                disabled={!canMoveUsageDatePickerNext}
+                accessibilityRole="button"
+                accessibilityLabel={copy.nextMonth}
+                style={({ pressed }) => [
+                  styles.datePickerNavButton,
+                  !canMoveUsageDatePickerNext && styles.datePickerNavButtonDisabled,
+                  pressed && canMoveUsageDatePickerNext && styles.estimateButtonPressed,
+                ]}
+              >
+                <Feather name="chevron-right" size={18} color={canMoveUsageDatePickerNext ? colors.textSecondary : colors.border} />
+              </SoftPressable>
+            </View>
+            <View style={styles.datePickerWeekRow}>
+              {(language === 'en'
+                ? ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                : ['日', '一', '二', '三', '四', '五', '六']
+              ).map((dayLabel, index) => (
+                <Text key={`${dayLabel}-${index}`} style={styles.datePickerWeekText}>{dayLabel}</Text>
+              ))}
+            </View>
+            <View style={styles.datePickerGrid}>
+              {usageCalendarCells.map((cell) => {
+                const selected = cell.dateKey === usageStartDateInput;
+                const today = cell.dateKey === todayUsageDateKey;
+                const disabled = cell.dateKey > todayUsageDateKey;
+                return (
+                  <SoftPressable
+                    key={cell.dateKey}
+                    disabled={disabled}
+                    onPress={() => selectUsageDate(cell.dateKey)}
+                    style={({ pressed }) => [
+                      styles.datePickerDayCell,
+                      selected && styles.datePickerDayCellSelected,
+                      disabled && styles.datePickerDayCellDisabled,
+                      pressed && !disabled && styles.estimateButtonPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.datePickerDayText,
+                        !cell.isCurrentMonth && styles.datePickerDayTextMuted,
+                        today && styles.datePickerDayTextToday,
+                        selected && styles.datePickerDayTextSelected,
+                        disabled && styles.datePickerDayTextDisabled,
+                      ]}
+                    >
+                      {cell.day}
+                    </Text>
+                  </SoftPressable>
+                );
+              })}
+            </View>
           </View>
         </View>
       </Modal>
@@ -2521,6 +3125,87 @@ export default function SettingsScreen() {
                         />
                       ))}
                     </View>
+                  </View>
+                </View>
+              ) : null}
+
+              {systemDetailSection === 'records' ? (
+                <View style={styles.systemPanel}>
+                  <View style={[styles.systemSection, styles.systemInsetCard]}>
+                    <View style={styles.usageStartHeader}>
+                      <View style={styles.systemInsetHeader}>
+                        <View style={styles.systemInsetIcon}>
+                          <Feather name="calendar" size={16} color={colors.primary} />
+                        </View>
+                        <Text style={styles.systemLabel}>{copy.usageStartDateTitle}</Text>
+                      </View>
+                      <Text style={styles.usageStartValue} numberOfLines={1}>{usageStartDateLabel}</Text>
+                    </View>
+                    <Text style={styles.usageStartDescription} numberOfLines={1}>
+                      {copy.usageStartDateDescription}
+                    </Text>
+                    <View style={styles.usageStartControl}>
+                      <SoftPressable
+                        onPress={openUsageDatePicker}
+                        style={({ pressed }) => [
+                          styles.usageStartInputShell,
+                          pressed && styles.estimateButtonPressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.usageStartInputText,
+                            !usageStartDateInput && styles.usageStartInputTextPlaceholder,
+                          ]}
+                        >
+                          {usageStartDateInput
+                            ? formatSettingsDate(usageStartDateInput, language)
+                            : copy.usageStartDateSelect}
+                        </Text>
+                        <Feather name="calendar" size={16} color={colors.textSecondary} />
+                      </SoftPressable>
+                      <SoftPressable
+                        onPress={() => applyUsageStartDate(usageStartDateInput)}
+                        disabled={!hasUsageStartDateChange}
+                        style={({ pressed }) => [
+                          styles.usageStartApplyButton,
+                          !hasUsageStartDateChange && styles.usageStartApplyButtonDisabled,
+                          pressed && hasUsageStartDateChange && styles.saveButtonPressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.usageStartApplyText,
+                            !hasUsageStartDateChange && styles.saveButtonTextDisabled,
+                          ]}
+                        >
+                          {copy.apply}
+                          </Text>
+                        </SoftPressable>
+                      </View>
+                    <View style={styles.usageStartQuickRow}>
+                      <SoftPressable
+                        onPress={() => setUsageStartDateInput(toLocalDateKey(new Date()))}
+                        style={({ pressed }) => [
+                          styles.usageStartQuickButton,
+                          pressed && styles.estimateButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.usageStartQuickText}>{copy.usageStartDateToday}</Text>
+                      </SoftPressable>
+                      <SoftPressable
+                        onPress={clearUsageStartDate}
+                        style={({ pressed }) => [
+                          styles.usageStartQuickButton,
+                          pressed && styles.estimateButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.usageStartQuickText}>{copy.usageStartDateClear}</Text>
+                      </SoftPressable>
+                    </View>
+                    {!isUsageStartDateInputValid ? (
+                      <Text style={styles.quietInvalidText}>{copy.usageStartDateInvalid}</Text>
+                    ) : null}
                   </View>
                 </View>
               ) : null}
@@ -2751,6 +3436,79 @@ export default function SettingsScreen() {
           </Animated.View>
         </View>
       </Modal>
+      <Modal
+        visible={isUpdateResultModalVisible}
+        transparent
+        animationType="none"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={closeUpdateResultModal}
+      >
+        <View style={styles.modalRoot}>
+          <Animated.View
+            style={[styles.modalBackdrop, updateResultModalBackdropStyle]}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={closeUpdateResultModal}
+            />
+          </Animated.View>
+          <Animated.View
+            renderToHardwareTextureAndroid
+            needsOffscreenAlphaCompositing
+            style={[styles.modalCard, styles.exportSuccessCard, updateResultModalCardStyle]}
+          >
+            <View style={[
+              styles.exportSuccessIcon,
+              updateResult?.status === 'error' && styles.updateResultIconError,
+              updateResult?.status === 'update' && styles.updateResultIconUpdate,
+            ]}>
+              <Feather
+                name={updateResult?.status === 'error' ? 'x' : updateResult?.status === 'update' ? 'download-cloud' : 'check'}
+                size={24}
+                color={updateResult?.status === 'error' ? colors.danger : updateResult?.status === 'update' ? colors.primary : colors.success}
+              />
+            </View>
+            <Text style={styles.exportSuccessTitle}>{updateResult?.title ?? copy.updateTitle}</Text>
+            <Text style={styles.exportSuccessDescription}>{updateResult?.message}</Text>
+            {updateResult?.downloadUrl ? (
+              <View style={styles.updateModalActionRow}>
+                <SoftPressable
+                  onPress={closeUpdateResultModal}
+                  style={({ pressed }) => [
+                    styles.updateModalSecondaryButton,
+                    pressed && styles.estimateButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.updateModalSecondaryText}>{copy.updateLater}</Text>
+                </SoftPressable>
+                <SoftPressable
+                  onPress={() => {
+                    closeUpdateResultModal();
+                    void Linking.openURL(updateResult.downloadUrl ?? '');
+                  }}
+                  style={({ pressed }) => [
+                    styles.updateModalPrimaryButton,
+                    pressed && styles.saveButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.modalPrimaryText}>{copy.updateOpen}</Text>
+                </SoftPressable>
+              </View>
+            ) : (
+              <SoftPressable
+                onPress={closeUpdateResultModal}
+                style={({ pressed }) => [
+                  styles.modalPrimaryButton,
+                  pressed && styles.saveButtonPressed,
+                ]}
+              >
+                <Text style={styles.modalPrimaryText}>{copy.updateConfirm}</Text>
+              </SoftPressable>
+            )}
+          </Animated.View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -2798,18 +3556,19 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: layout.s(12),
-    marginBottom: layout.s(6),
+    marginBottom: layout.titleGap,
   },
   cardDescription: {
     fontSize: layout.body,
     fontFamily: Theme.fonts.regular,
     color: colors.textSecondary,
     lineHeight: layout.s(20),
-    marginBottom: layout.s(16),
+    marginBottom: layout.textToControlGap,
   },
   chipGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: layout.s(8),
   },
   quietEntry: {
     minHeight: 58,
@@ -3037,8 +3796,8 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontFamily: Theme.fonts.regular,
     fontSize: 13,
     lineHeight: 18,
-    marginTop: layout.s(14),
-    marginBottom: layout.s(8),
+    marginTop: layout.sectionGap,
+    marginBottom: layout.textToControlGap,
   },
   inlineTimePills: {
     flexDirection: 'row' as const,
@@ -3258,11 +4017,10 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   customSection: {
     alignItems: 'flex-start',
-    marginTop: 2,
-    paddingTop: 2,
+    marginTop: layout.sectionGap,
   },
   customCopy: {
-    marginBottom: 6,
+    marginBottom: layout.titleGap,
   },
   customTitle: {
     color: colors.textSecondary,
@@ -3405,6 +4163,51 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     lineHeight: 19,
     flexShrink: 1,
   },
+  summaryEntryCard: {
+    minHeight: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  summaryEntryLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  summaryEntryIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryEntryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryEntryDescription: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    flexShrink: 1,
+  },
+  summaryEntryMeta: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  summaryEntryRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
   systemRow: {
     gap: 10,
   },
@@ -3424,6 +4227,25 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   reminderModalContent: {
     paddingBottom: 4,
     gap: 10,
+  },
+  reminderSettingsContent: {
+    paddingBottom: layout.s(24),
+  },
+  reminderSettingsCard: {
+    gap: layout.s(10),
+  },
+  reminderSettingHeader: {
+    marginBottom: 0,
+  },
+  reminderCardDescription: {
+    marginBottom: 0,
+  },
+  modalCustomSection: {
+    marginTop: 0,
+  },
+  reminderInlineSectionTitle: {
+    marginTop: 0,
+    marginBottom: 0,
   },
   systemModalContent: {
     paddingBottom: 2,
@@ -3485,7 +4307,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     lineHeight: 17,
   },
   systemSection: {
-    gap: 10,
+    gap: layout.sectionGap,
   },
   systemInsetCard: {
     backgroundColor: colors.surface,
@@ -3639,6 +4461,86 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingVertical: 10,
     gap: 3,
   },
+  usageStartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: layout.s(12),
+  },
+  usageStartDescription: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.regular,
+    fontSize: layout.s(12),
+    lineHeight: layout.s(17),
+  },
+  usageStartValue: {
+    color: colors.primary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(13),
+    lineHeight: layout.s(18),
+  },
+  usageStartControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: layout.s(8),
+  },
+  usageStartInputShell: {
+    flex: 1,
+    minHeight: layout.s(42),
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: Theme.radius.input,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    paddingHorizontal: layout.s(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: layout.s(8),
+  },
+  usageStartInputText: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(14),
+  },
+  usageStartInputTextPlaceholder: {
+    color: colors.textSecondary + '80',
+  },
+  usageStartApplyButton: {
+    minHeight: layout.s(42),
+    borderRadius: Theme.radius.button,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: layout.s(14),
+  },
+  usageStartApplyButtonDisabled: {
+    backgroundColor: colors.trackBackground,
+  },
+  usageStartApplyText: {
+    color: colors.surface,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(13),
+  },
+  usageStartQuickRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: layout.s(8),
+  },
+  usageStartQuickButton: {
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: layout.s(12),
+    paddingVertical: layout.s(7),
+  },
+  usageStartQuickText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(12),
+  },
   dataPathLabel: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
@@ -3730,6 +4632,12 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     justifyContent: 'center',
     marginBottom: 2,
   },
+  updateResultIconError: {
+    backgroundColor: colors.dangerSoft,
+  },
+  updateResultIconUpdate: {
+    backgroundColor: colors.primarySoft,
+  },
   exportSuccessTitle: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
@@ -3743,6 +4651,36 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontSize: layout.s(13),
     lineHeight: layout.s(19),
     textAlign: 'center',
+  },
+  updateModalActionRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    gap: layout.s(10),
+  },
+  updateModalSecondaryButton: {
+    flex: 1,
+    minHeight: layout.s(48),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: layout.s(14),
+  },
+  updateModalPrimaryButton: {
+    flex: 1,
+    minHeight: layout.s(48),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.primary,
+    paddingHorizontal: layout.s(14),
+  },
+  updateModalSecondaryText: {
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(14),
   },
   exportSuccessPathBox: {
     alignSelf: 'stretch',
@@ -3914,6 +4852,95 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     shadowOpacity: Theme.shadow.floating.opacity,
     shadowRadius: Theme.shadow.floating.radius,
   },
+  datePickerCard: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: layout.s(360),
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    padding: layout.modalCardPadding,
+    gap: layout.s(14),
+    elevation: Theme.shadow.floating.elevation,
+    shadowColor: Theme.shadow.floating.color,
+    shadowOffset: { width: 0, height: Theme.shadow.floating.offsetY },
+    shadowOpacity: Theme.shadow.floating.opacity,
+    shadowRadius: Theme.shadow.floating.radius,
+  },
+  datePickerMonthBar: {
+    minHeight: layout.s(38),
+    borderRadius: Theme.radius.full,
+    backgroundColor: colors.surfaceMuted,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: layout.s(6),
+    gap: layout.s(8),
+  },
+  datePickerNavButton: {
+    width: layout.s(32),
+    height: layout.s(32),
+    borderRadius: Theme.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  datePickerNavButtonDisabled: {
+    opacity: 0.42,
+  },
+  datePickerMonthText: {
+    flex: 1,
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(14),
+    textAlign: 'center',
+  },
+  datePickerWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  datePickerWeekText: {
+    width: `${100 / 7}%`,
+    color: colors.textSecondary,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(11),
+    textAlign: 'center',
+  },
+  datePickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: layout.s(4),
+  },
+  datePickerDayCell: {
+    width: `${100 / 7}%`,
+    height: layout.s(36),
+    borderRadius: Theme.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePickerDayCellSelected: {
+    backgroundColor: colors.primary,
+  },
+  datePickerDayCellDisabled: {
+    opacity: 0.3,
+  },
+  datePickerDayText: {
+    color: colors.text,
+    fontFamily: Theme.fonts.medium,
+    fontSize: layout.s(13),
+  },
+  datePickerDayTextMuted: {
+    color: colors.textSecondary,
+    opacity: 0.38,
+  },
+  datePickerDayTextToday: {
+    color: colors.primary,
+  },
+  datePickerDayTextSelected: {
+    color: colors.surface,
+  },
+  datePickerDayTextDisabled: {
+    color: colors.textSecondary,
+  },
   timePickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3980,6 +5007,13 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   modalScrollContent: {
     paddingBottom: 2,
   },
+  goalModalScrollContent: {
+    paddingBottom: layout.s(24),
+    gap: layout.s(12),
+  },
+  modalPresetCard: {
+    marginBottom: 0,
+  },
   timePickerCloseButton: {
     backgroundColor: colors.surfaceMuted,
   },
@@ -3989,7 +5023,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: layout.s(14),
-    gap: layout.s(16),
+    gap: layout.sectionGap,
     elevation: Theme.shadow.card.elevation,
     shadowColor: Theme.shadow.card.color,
     shadowOffset: { width: 0, height: Theme.shadow.card.offsetY },

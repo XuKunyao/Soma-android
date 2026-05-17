@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { HapticTab } from '@/components/haptic-tab';
 import { Theme } from '@/constants/theme';
@@ -28,7 +29,9 @@ function TabIcon({
 export default function TabLayout() {
   const colors = useThemeColors();
   const { state } = useWater();
+  const insets = useSafeAreaInsets();
   const isEnglish = state.settings.language === 'en';
+  const androidBottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 18) : insets.bottom;
 
   return (
     <Tabs
@@ -42,8 +45,8 @@ export default function TabLayout() {
           borderTopColor: colors.border,
           borderTopWidth: StyleSheet.hairlineWidth,
           elevation: 0,
-          height: Platform.OS === 'android' ? 60 : 85,
-          paddingBottom: Platform.OS === 'android' ? 8 : 28,
+          height: Platform.OS === 'android' ? 64 + androidBottomInset : 58 + androidBottomInset,
+          paddingBottom: Platform.OS === 'android' ? androidBottomInset : Math.max(androidBottomInset, 28),
           paddingTop: 8,
         },
         tabBarLabelStyle: {

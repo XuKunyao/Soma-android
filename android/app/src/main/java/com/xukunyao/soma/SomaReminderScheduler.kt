@@ -23,12 +23,17 @@ object SomaReminderScheduler {
   private const val PREFS_NAME = "soma_reminders"
   private const val CHANNEL_ID = "water-reminders-v2"
   private const val REQUEST_CODE = 19060
+  private const val SNOOZE_REQUEST_CODE = 19062
+  private const val PAUSE_TODAY_REQUEST_CODE = 19063
   private const val NOTIFICATION_ID = 19061
   private const val DEFAULT_QUIET_START = "22:00"
   private const val DEFAULT_QUIET_END = "08:00"
+  private const val SNOOZE_MINUTES = 15
 
   const val ACTION_REMIND = "com.xukunyao.soma.action.WATER_REMINDER"
   const val ACTION_RESCHEDULE = "com.xukunyao.soma.action.RESCHEDULE_REMINDERS"
+  const val ACTION_SNOOZE = "com.xukunyao.soma.action.SNOOZE_REMINDER"
+  const val ACTION_PAUSE_TODAY = "com.xukunyao.soma.action.PAUSE_TODAY"
 
   fun schedule(context: Context, optionsJson: String) {
     val options = JSONObject(optionsJson)
@@ -70,6 +75,41 @@ object SomaReminderScheduler {
     NotificationManagerCompat.from(context).cancelAll()
   }
 
+  fun snooze(context: Context) {
+    val prefs = prefs(context)
+    if (!prefs.getBoolean("enabled", false)) {
+      return
+    }
+
+    prefs.edit()
+      .putLong("snoozeUntil", System.currentTimeMillis() + SNOOZE_MINUTES * 60_000L)
+      .apply()
+    NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    scheduleNext(context)
+  }
+
+  fun pauseToday(context: Context) {
+    val prefs = prefs(context)
+    if (!prefs.getBoolean("enabled", false)) {
+      return
+    }
+
+    val tomorrow = Calendar.getInstance().apply {
+      add(Calendar.DATE, 1)
+      set(Calendar.HOUR_OF_DAY, 0)
+      set(Calendar.MINUTE, 0)
+      set(Calendar.SECOND, 0)
+      set(Calendar.MILLISECOND, 0)
+    }
+
+    prefs.edit()
+      .putLong("pauseUntil", tomorrow.timeInMillis)
+      .putLong("snoozeUntil", 0L)
+      .apply()
+    NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    scheduleNext(context)
+  }
+
   fun handleReminder(context: Context) {
     val prefs = prefs(context)
     if (!prefs.getBoolean("enabled", false)) {
@@ -80,6 +120,12 @@ object SomaReminderScheduler {
     ensureChannel(context)
 
     val now = Calendar.getInstance()
+    val pauseUntil = prefs.getLong("pauseUntil", 0L)
+    if (pauseUntil > System.currentTimeMillis()) {
+      scheduleNext(context)
+      return
+    }
+
     val nowMinute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
     if (!isWithinQuietWindow(nowMinute, prefs)) {
       showNotification(context, prefs)
@@ -131,6 +177,17 @@ object SomaReminderScheduler {
   }
 
   private fun nextTriggerAtMillis(prefs: SharedPreferences): Long? {
+    val nowMillis = System.currentTimeMillis()
+    val pauseUntil = prefs.getLong("pauseUntil", 0L)
+    if (pauseUntil > nowMillis) {
+      return pauseUntil
+    }
+
+    val snoozeUntil = prefs.getLong("snoozeUntil", 0L)
+    if (snoozeUntil > nowMillis) {
+      return snoozeUntil
+    }
+
     val exactTimes = parseReminderTimes(prefs.getString("reminderTimes", "[]"))
     return if (exactTimes.isNotEmpty()) {
       nextExactTriggerAtMillis(exactTimes, prefs)
@@ -231,6 +288,16 @@ object SomaReminderScheduler {
       .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
       .setVibrate(longArrayOf(0, 180, 120, 180))
       .setContentIntent(contentIntent)
+      .addAction(
+        context.applicationInfo.icon,
+        if (language == "en") "In 15 min" else "15 分钟后",
+        actionPendingIntent(context, ACTION_SNOOZE, SNOOZE_REQUEST_CODE)
+      )
+      .addAction(
+        context.applicationInfo.icon,
+        if (language == "en") "Pause today" else "今天暂停",
+        actionPendingIntent(context, ACTION_PAUSE_TODAY, PAUSE_TODAY_REQUEST_CODE)
+      )
       .build()
 
     NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
@@ -266,6 +333,16 @@ object SomaReminderScheduler {
     return PendingIntent.getBroadcast(
       context,
       REQUEST_CODE,
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+  }
+
+  private fun actionPendingIntent(context: Context, action: String, requestCode: Int): PendingIntent {
+    val intent = Intent(context, SomaReminderReceiver::class.java).setAction(action)
+    return PendingIntent.getBroadcast(
+      context,
+      requestCode,
       intent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )

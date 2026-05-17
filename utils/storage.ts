@@ -33,6 +33,7 @@ export interface WaterSettings {
   language: LanguagePreference;
   appearance: AppearancePreference;
   exportDirectoryUri?: string;
+  usageStartDate?: string;
 }
 
 export interface WaterDataExport {
@@ -61,6 +62,7 @@ export const DEFAULT_SETTINGS: WaterSettings = {
   language: 'zh',
   appearance: 'system',
   exportDirectoryUri: '',
+  usageStartDate: '',
 };
 
 const WATER_LOG_PREFIX = 'water_logs_';
@@ -82,7 +84,16 @@ export async function saveLogsForDate(dateKey: string, logs: WaterLog[]): Promis
 
 export async function loadLogsForDate(dateKey: string): Promise<WaterLog[]> {
   const data = await AsyncStorage.getItem(`${WATER_LOG_PREFIX}${dateKey}`);
-  return data ? JSON.parse(data) as WaterLog[] : [];
+  if (!data) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(data) as unknown;
+    return Array.isArray(parsed) ? parsed.filter(isValidWaterLog) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function saveGoalForDate(dateKey: string, goal: number): Promise<void> {
@@ -95,8 +106,12 @@ export async function loadGoalForDate(dateKey: string): Promise<number | null> {
     return null;
   }
 
-  const goal = JSON.parse(data) as number;
-  return Number.isFinite(goal) ? goal : null;
+  try {
+    const goal = JSON.parse(data) as unknown;
+    return typeof goal === 'number' && Number.isFinite(goal) ? goal : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveTodayLogs(logs: WaterLog[]): Promise<void> {
@@ -171,6 +186,7 @@ function normalizeExportedSettings(value: unknown, currentSettings: WaterSetting
     language: merged.language === 'en' ? 'en' : 'zh',
     appearance: merged.appearance === 'light' || merged.appearance === 'dark' ? merged.appearance : 'system',
     exportDirectoryUri: currentSettings.exportDirectoryUri ?? '',
+    usageStartDate: typeof merged.usageStartDate === 'string' ? merged.usageStartDate : '',
   };
 }
 
@@ -220,7 +236,30 @@ export async function saveSettings(settings: WaterSettings): Promise<void> {
 export async function loadSettings(): Promise<WaterSettings> {
   const data = await AsyncStorage.getItem(SETTINGS_KEY);
   if (data) {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+    try {
+      const parsed = JSON.parse(data) as unknown;
+      if (isPlainObject(parsed)) {
+        const merged = { ...DEFAULT_SETTINGS, ...parsed };
+        return {
+          ...merged,
+          dailyGoal: typeof merged.dailyGoal === 'number' && Number.isFinite(merged.dailyGoal) ? merged.dailyGoal : DEFAULT_SETTINGS.dailyGoal,
+          cupSize: typeof merged.cupSize === 'number' && Number.isFinite(merged.cupSize) ? merged.cupSize : DEFAULT_SETTINGS.cupSize,
+          reminderInterval: typeof merged.reminderInterval === 'number' && Number.isFinite(merged.reminderInterval) ? merged.reminderInterval : DEFAULT_SETTINGS.reminderInterval,
+          reminderCustomInterval: typeof merged.reminderCustomInterval === 'number' && Number.isFinite(merged.reminderCustomInterval) ? merged.reminderCustomInterval : DEFAULT_SETTINGS.reminderCustomInterval,
+          reminderTimes: Array.isArray(merged.reminderTimes) ? merged.reminderTimes.filter((item) => typeof item === 'string') : DEFAULT_SETTINGS.reminderTimes,
+          reminderDisabledTimes: Array.isArray(merged.reminderDisabledTimes) ? merged.reminderDisabledTimes.filter((item) => typeof item === 'string') : DEFAULT_SETTINGS.reminderDisabledTimes,
+          reminderEnabled: typeof merged.reminderEnabled === 'boolean' ? merged.reminderEnabled : DEFAULT_SETTINGS.reminderEnabled,
+          reminderQuietStart: typeof merged.reminderQuietStart === 'string' ? merged.reminderQuietStart : DEFAULT_SETTINGS.reminderQuietStart,
+          reminderQuietEnd: typeof merged.reminderQuietEnd === 'string' ? merged.reminderQuietEnd : DEFAULT_SETTINGS.reminderQuietEnd,
+          language: merged.language === 'en' ? 'en' : 'zh',
+          appearance: merged.appearance === 'light' || merged.appearance === 'dark' ? merged.appearance : 'system',
+          exportDirectoryUri: typeof merged.exportDirectoryUri === 'string' ? merged.exportDirectoryUri : DEFAULT_SETTINGS.exportDirectoryUri,
+          usageStartDate: typeof merged.usageStartDate === 'string' && DATE_KEY_PATTERN.test(merged.usageStartDate) ? merged.usageStartDate : DEFAULT_SETTINGS.usageStartDate,
+        };
+      }
+    } catch {
+      return DEFAULT_SETTINGS;
+    }
   }
   return DEFAULT_SETTINGS;
 }
