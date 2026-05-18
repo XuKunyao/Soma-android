@@ -145,6 +145,26 @@ function samePeriodOrAfterToday(mode: PeriodMode, anchorDate: Date): boolean {
   return anchorDate.getFullYear() >= today.getFullYear();
 }
 
+function periodEndDate(mode: PeriodMode, anchorDate: Date): Date {
+  if (mode === 'day') {
+    return anchorDate;
+  }
+
+  if (mode === 'week') {
+    return endOfWeek(anchorDate);
+  }
+
+  if (mode === 'month') {
+    return new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 0);
+  }
+
+  return new Date(anchorDate.getFullYear(), 11, 31);
+}
+
+function overlapsUsageStart(mode: PeriodMode, anchorDate: Date, usageStartDate: Date | null): boolean {
+  return !usageStartDate || periodEndDate(mode, anchorDate).getTime() >= usageStartDate.getTime();
+}
+
 function formatDayLabel(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
@@ -783,6 +803,22 @@ export default function HistoryScreen() {
     await refreshHistory();
   }, [anchorDate, canMarkComplete, period.summary.goal, refreshHistory]);
   const canGoNext = !samePeriodOrAfterToday(mode, anchorDate);
+  const previousAnchorDate = React.useMemo(() => {
+    if (mode === 'day') {
+      return addDays(anchorDate, -1);
+    }
+
+    if (mode === 'week') {
+      return addDays(anchorDate, -7);
+    }
+
+    if (mode === 'month') {
+      return addMonths(anchorDate, -1);
+    }
+
+    return addYears(anchorDate, -1);
+  }, [anchorDate, mode]);
+  const canGoPrevious = overlapsUsageStart(mode, previousAnchorDate, usageStartDate);
   const pickerCells = React.useMemo(() => {
     const firstDay = new Date(pickerYear, pickerMonth - 1, 1);
     const leadingDays = (firstDay.getDay() + 6) % 7;
@@ -856,21 +892,41 @@ export default function HistoryScreen() {
   const availablePickerMonths = getAvailableMonthsForYear(pickerYear);
   const movePeriod = React.useCallback((direction: -1 | 1) => {
     setAnchorDate((current) => {
+      const nextDate = (() => {
+        if (mode === 'day') {
+          return addDays(current, direction);
+        }
+
+        if (mode === 'week') {
+          return addDays(current, direction * 7);
+        }
+
+        if (mode === 'month') {
+          return addMonths(current, direction);
+        }
+
+        return addYears(current, direction);
+      })();
+
+      if (direction < 0 && !overlapsUsageStart(mode, nextDate, usageStartDate)) {
+        return current;
+      }
+
       if (mode === 'day') {
-        return addDays(current, direction);
+        return nextDate;
       }
 
       if (mode === 'week') {
-        return addDays(current, direction * 7);
+        return nextDate;
       }
 
       if (mode === 'month') {
-        return addMonths(current, direction);
+        return nextDate;
       }
 
-      return addYears(current, direction);
+      return nextDate;
     });
-  }, [mode]);
+  }, [mode, usageStartDate]);
 
   return (
     <ScrollView
@@ -910,13 +966,15 @@ export default function HistoryScreen() {
       <View style={styles.periodNavigator}>
         <Pressable
           accessibilityLabel={copy.previous}
+          disabled={!canGoPrevious}
           onPress={() => movePeriod(-1)}
           style={({ pressed }) => [
             styles.periodNavButton,
-            pressed && styles.segmentButtonPressed,
+            !canGoPrevious && styles.periodNavButtonDisabled,
+            pressed && canGoPrevious && styles.segmentButtonPressed,
           ]}
         >
-          <Feather name="chevron-left" size={18} color={colors.primary} />
+          <Feather name="chevron-left" size={18} color={canGoPrevious ? colors.primary : colors.textSecondary} />
         </Pressable>
         <Pressable
           onPress={openDatePicker}
