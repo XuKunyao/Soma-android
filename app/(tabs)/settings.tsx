@@ -2000,10 +2000,7 @@ export default function SettingsScreen() {
   };
 
   const quietHoursEnabled = !!(settings.reminderQuietStart && settings.reminderQuietEnd);
-  const exactReminderCount = Array.from(new Set([
-    ...settings.reminderTimes,
-    ...(settings.reminderDisabledTimes || []),
-  ])).length;
+  const exactReminderCount = new Set(settings.reminderTimes).size;
   const reminderSummary = !settings.reminderEnabled
     ? copy.reminderSummaryOff
     : exactReminderCount > 0
