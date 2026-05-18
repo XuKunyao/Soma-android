@@ -21,6 +21,7 @@ import {
   ScrollView,
   ToastAndroid,
   Platform,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -33,6 +34,8 @@ import { WaterProgress } from '@/components/WaterProgress';
 import { WaterLogItem } from '@/components/WaterLogItem';
 import { GreetingHeader } from '@/components/GreetingHeader';
 import { AppText as Text } from '@/components/fixed-scale-text';
+
+const HOME_CUP_IMAGE = require('../../assets/images/home-cup.png');
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -79,6 +82,14 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
       onScrollBeginDrag={closeOpenLogAction}
     >
+      <View pointerEvents="none" style={styles.homeCupImageWrap}>
+        <Image
+          source={HOME_CUP_IMAGE}
+          style={styles.homeCupImage}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
+      </View>
       {/* 问候语 */}
       <View onTouchStart={closeOpenLogAction}>
         <GreetingHeader />
@@ -145,6 +156,19 @@ function createStyles(colors: typeof Theme.colors) {
   content: {
     paddingHorizontal: 24,
     paddingBottom: 20,
+    position: 'relative',
+  },
+  homeCupImageWrap: {
+    position: 'absolute',
+    top: 8,
+    right: 24,
+    width: 95,
+    height: 62,
+    opacity: 0.96,
+  },
+  homeCupImage: {
+    width: '100%',
+    height: '100%',
   },
   progressSection: {
     alignItems: 'center',

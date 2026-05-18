@@ -24,15 +24,15 @@ Soma 用轻量记录、本地提醒和柔和的统计视图，帮助你在日常
 主页、记录页和设置页覆盖了 Soma 最常用的路径：记录一杯水、回看一段时间的完成情况，再根据自己的节奏调整目标和提醒。
 
 <p align="center">
-  <img src="docs/screenshots/main-record-settings.png" width="900" alt="Soma 首页、记录和设置页面" />
+  <img src="docs/screenshots/goals-and-cup.png" width="900" alt="Soma 首页、记录和设置页面" />
 </p>
 
 ### Personal goals
 
-目标和杯量设置保持在同一套温暖克制的弹窗体系里。你可以直接选择常用数值，也可以根据身体数据、活动量和饮食习惯估算更合适的每日目标。
+目标和杯量设置保持在同一套弹窗体系里。你可以直接选择常用数值，也可以根据身体数据、活动量和饮食习惯估算更合适的每日目标。
 
 <p align="center">
-  <img src="docs/screenshots/goals-and-cup.png" width="900" alt="Soma 自定义喝水目标和单次饮水量设置" />
+  <img src="docs/screenshots/main-record-settings.png" width="900" alt="Soma 自定义喝水目标和单次饮水量设置" />
 </p>
 
 ### Reminders and system settings
@@ -59,7 +59,7 @@ Soma 用轻量记录、本地提醒和柔和的统计视图，帮助你在日常
 
 前往 [GitHub Releases](https://github.com/XuKunyao/Soma-android/releases) 下载最新版 APK。
 
-当前版本：**v1.2.1**
+当前版本：**v1.2.2**
 
 ## Tech Stack
 

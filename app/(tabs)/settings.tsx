@@ -162,6 +162,7 @@ const APPEARANCE_OPTIONS = {
 const DAILY_GOALS = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
 const BASE_WEIGHT_SLOPE = 14;
 const HYDRATION_GOAL_IMAGE = require('../../assets/images/hydration-goal-illustration.png');
+const AUTHOR_CUP_IMAGE = require('../../assets/images/author-cup.png');
 const MODAL_ENTER_TIMING = { duration: 360, easing: Easing.out(Easing.cubic) };
 const MODAL_EXIT_TIMING = { duration: 220, easing: Easing.in(Easing.cubic) };
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -3350,6 +3351,14 @@ export default function SettingsScreen() {
 
               {systemDetailSection === 'about' ? (
                 <View style={styles.aboutAuthorCard}>
+                  <View pointerEvents="none" style={styles.aboutAuthorImageWrap}>
+                    <Image
+                      source={AUTHOR_CUP_IMAGE}
+                      style={styles.aboutAuthorImage}
+                      resizeMode="contain"
+                      accessibilityIgnoresInvertColors
+                    />
+                  </View>
                   <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
                   <Text style={styles.aboutAuthorBody}>{copy.aboutAuthorBody}</Text>
                   <View style={styles.aboutInfoGroup}>
@@ -4702,18 +4711,33 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     borderColor: colors.border,
     padding: 16,
     gap: 14,
+    overflow: 'hidden',
+  },
+  aboutAuthorImageWrap: {
+    position: 'absolute',
+    top: 12,
+    right: 14,
+    width: 86,
+    height: 86,
+    opacity: 0.96,
+  },
+  aboutAuthorImage: {
+    width: '100%',
+    height: '100%',
   },
   aboutAuthorTitle: {
     color: colors.text,
     fontFamily: Theme.fonts.medium,
     fontSize: 17,
     lineHeight: 23,
+    paddingRight: 92,
   },
   aboutAuthorBody: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 14,
     lineHeight: 23,
+    paddingRight: 92,
   },
   aboutInfoGroup: {
     borderTopWidth: StyleSheet.hairlineWidth,
