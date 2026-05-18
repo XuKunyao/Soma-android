@@ -1013,14 +1013,14 @@ export default function SettingsScreen() {
   const language = settings.language;
   const isEnglish = language === 'en';
   const aboutAuthorBody = [
-    '你好，我是包子小方同学。',
+    '你好，我是包子小方同学，',
     '这个应用由我独立设计和开发。',
     '',
     '我希望它不是一个催促你的健康工具，',
     '而是一张安静的小便签，',
     '轻轻提醒你在日常里照顾自己。',
     '',
-    '谢谢你把它留在手机里。',
+    '谢谢你把它留在手机里，',
     '愿你今天也记得喝一口水。',
   ].join('\n');
   const animateExactTimeModalOut = useModalEntrance(isExactTimeModalVisible, exactTimeModalProgress);
@@ -1397,7 +1397,7 @@ export default function SettingsScreen() {
       systemDescription: '设置语言、外观、数据备份和应用信息',
       systemEntryDescription: '语言、外观、备份等',
       preferenceTitle: '语言与外观',
-      preferenceDescription: '显示语言、浅色/深色模式等界面偏好',
+      preferenceDescription: '语言、主题和界面偏好',
       recordsSectionTitle: '记录统计',
       recordsSectionDescription: '开始使用日期和历史统计口径',
       permissionTitle: '通知与后台',
@@ -3351,15 +3351,17 @@ export default function SettingsScreen() {
 
               {systemDetailSection === 'about' ? (
                 <View style={styles.aboutAuthorCard}>
-                  <View pointerEvents="none" style={styles.aboutAuthorImageWrap}>
-                    <Image
-                      source={AUTHOR_CUP_IMAGE}
-                      style={styles.aboutAuthorImage}
-                      resizeMode="contain"
-                      accessibilityIgnoresInvertColors
-                    />
+                  <View style={styles.aboutAuthorHeader}>
+                    <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
+                    <View pointerEvents="none" style={styles.aboutAuthorImageWrap}>
+                      <Image
+                        source={AUTHOR_CUP_IMAGE}
+                        style={styles.aboutAuthorImage}
+                        resizeMode="contain"
+                        accessibilityIgnoresInvertColors
+                      />
+                    </View>
                   </View>
-                  <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
                   <Text style={styles.aboutAuthorBody}>{copy.aboutAuthorBody}</Text>
                   <View style={styles.aboutInfoGroup}>
                     <View style={styles.aboutInfoRow}>
@@ -4713,12 +4715,16 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     gap: 14,
     overflow: 'hidden',
   },
+  aboutAuthorHeader: {
+    position: 'relative',
+    marginBottom: -8,
+  },
   aboutAuthorImageWrap: {
     position: 'absolute',
-    top: 12,
-    right: 14,
-    width: 86,
-    height: 86,
+    top: -2,
+    right: 0,
+    width: 82,
+    height: 76,
     opacity: 0.96,
   },
   aboutAuthorImage: {
@@ -4730,14 +4736,14 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     fontFamily: Theme.fonts.medium,
     fontSize: 17,
     lineHeight: 23,
-    paddingRight: 92,
+    flex: 1,
+    minWidth: 0,
   },
   aboutAuthorBody: {
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 14,
     lineHeight: 23,
-    paddingRight: 92,
   },
   aboutInfoGroup: {
     borderTopWidth: StyleSheet.hairlineWidth,
