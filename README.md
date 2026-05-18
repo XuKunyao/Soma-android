@@ -12,7 +12,7 @@ Soma 用轻量记录、本地提醒和柔和的统计视图，帮助你在日常
 [![React Native](https://img.shields.io/badge/React%20Native-0.81-F97316?style=flat-square&logo=react&logoColor=white)](https://reactnative.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-FACC15?style=flat-square&logo=typescript&logoColor=1A1612)](https://www.typescriptlang.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-22C55E?style=flat-square&logo=android&logoColor=white)](#download)
-[![Version](https://img.shields.io/badge/Version-1.2.1-06B6D4?style=flat-square)](#download)
+[![Version](https://img.shields.io/badge/Version-1.2.3-06B6D4?style=flat-square)](#download)
 [![License](https://img.shields.io/badge/License-MIT-EC4899?style=flat-square)](#license)
 
 </div>
@@ -59,7 +59,7 @@ Soma 用轻量记录、本地提醒和柔和的统计视图，帮助你在日常
 
 前往 [GitHub Releases](https://github.com/XuKunyao/Soma-android/releases) 下载最新版 APK。
 
-当前版本：**v1.2.2**
+当前版本：**v1.2.3**
 
 ## Tech Stack
 
