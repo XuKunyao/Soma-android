@@ -14,7 +14,8 @@
 import { NativeModules, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import type * as ExpoNotifications from 'expo-notifications';
-import type { LanguagePreference } from '@/utils/storage';
+import { resolveLanguagePreference } from '@/utils/language';
+import type { LanguagePreference, ResolvedLanguage } from '@/utils/storage';
 
 type NotificationsModule = typeof ExpoNotifications;
 
@@ -39,7 +40,7 @@ const REMINDER_CHANNEL_ID = 'water-reminders-v2';
 const nativeReminderModule = NativeModules.SomaReminderModule as NativeReminderModule | undefined;
 
 /** 温暖的提醒文案集合 */
-const REMINDER_MESSAGES: Record<LanguagePreference, { title: string; body: string }[]> = {
+const REMINDER_MESSAGES: Record<ResolvedLanguage, { title: string; body: string }[]> = {
   zh: [
     { title: '该喝水啦', body: '照顾好自己，喝杯水吧' },
     { title: '温馨提醒', body: '放下手里的事，慢慢喝一口水' },
@@ -165,7 +166,7 @@ function buildSpecificReminderTimes(times: string[] | undefined, quietStartValue
 }
 
 function pickReminderMessageAt(language: LanguagePreference, index: number): { title: string; body: string } {
-  const messages = REMINDER_MESSAGES[language];
+  const messages = REMINDER_MESSAGES[resolveLanguagePreference(language)];
   return messages[index % messages.length];
 }
 
@@ -242,12 +243,13 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
     quietStart = DEFAULT_QUIET_START,
     quietEnd = DEFAULT_QUIET_END,
   } = options;
+  const resolvedLanguage = resolveLanguagePreference(language);
 
   if (canUseNativeAndroidScheduler) {
     await nativeReminderModule.schedule?.(JSON.stringify({
       intervalMinutes,
       reminderTimes: specificReminderTimes ?? [],
-      language,
+      language: resolvedLanguage,
       quietStart,
       quietEnd,
     }));
@@ -270,8 +272,8 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
     await Notifications.scheduleNotificationAsync({
       identifier: 'soma-water-reminder-interval',
       content: {
-        title: pickReminderMessageAt(language, 0).title,
-        body: pickReminderMessageAt(language, 0).body,
+        title: pickReminderMessageAt(resolvedLanguage, 0).title,
+        body: pickReminderMessageAt(resolvedLanguage, 0).body,
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
       },
@@ -290,7 +292,7 @@ export async function scheduleWaterReminder(options: ReminderScheduleOptions): P
     : buildReminderTimes(intervalMinutes, quietStart, quietEnd);
 
   await Promise.all(reminderTimes.map((minuteOfDay, index) => {
-    const message = pickReminderMessageAt(language, index);
+    const message = pickReminderMessageAt(resolvedLanguage, index);
     const { hour, minute } = toTimeParts(minuteOfDay);
 
     return Notifications.scheduleNotificationAsync({

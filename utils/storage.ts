@@ -17,7 +17,8 @@ export interface WaterDayRecord {
   goal: number;
 }
 
-export type LanguagePreference = 'zh' | 'en';
+export type ResolvedLanguage = 'zh' | 'en';
+export type LanguagePreference = 'system' | ResolvedLanguage;
 export type AppearancePreference = 'system' | 'light' | 'dark';
 
 export interface WaterSettings {
@@ -165,6 +166,12 @@ function isValidWaterLog(value: unknown): value is WaterLog {
     && Number.isFinite(value.timestamp);
 }
 
+function normalizeLanguagePreference(value: unknown): LanguagePreference {
+  return value === 'system' || value === 'en' || value === 'zh'
+    ? value
+    : DEFAULT_SETTINGS.language;
+}
+
 function normalizeExportedSettings(value: unknown, currentSettings: WaterSettings): WaterSettings | null {
   if (!isPlainObject(value)) {
     return null;
@@ -183,7 +190,7 @@ function normalizeExportedSettings(value: unknown, currentSettings: WaterSetting
     reminderEnabled: typeof merged.reminderEnabled === 'boolean' ? merged.reminderEnabled : DEFAULT_SETTINGS.reminderEnabled,
     reminderQuietStart: typeof merged.reminderQuietStart === 'string' ? merged.reminderQuietStart : DEFAULT_SETTINGS.reminderQuietStart,
     reminderQuietEnd: typeof merged.reminderQuietEnd === 'string' ? merged.reminderQuietEnd : DEFAULT_SETTINGS.reminderQuietEnd,
-    language: merged.language === 'en' ? 'en' : 'zh',
+    language: normalizeLanguagePreference(merged.language),
     appearance: merged.appearance === 'light' || merged.appearance === 'dark' ? merged.appearance : 'system',
     exportDirectoryUri: currentSettings.exportDirectoryUri ?? '',
     usageStartDate: typeof merged.usageStartDate === 'string' ? merged.usageStartDate : '',
@@ -251,7 +258,7 @@ export async function loadSettings(): Promise<WaterSettings> {
           reminderEnabled: typeof merged.reminderEnabled === 'boolean' ? merged.reminderEnabled : DEFAULT_SETTINGS.reminderEnabled,
           reminderQuietStart: typeof merged.reminderQuietStart === 'string' ? merged.reminderQuietStart : DEFAULT_SETTINGS.reminderQuietStart,
           reminderQuietEnd: typeof merged.reminderQuietEnd === 'string' ? merged.reminderQuietEnd : DEFAULT_SETTINGS.reminderQuietEnd,
-          language: merged.language === 'en' ? 'en' : 'zh',
+          language: normalizeLanguagePreference(merged.language),
           appearance: merged.appearance === 'light' || merged.appearance === 'dark' ? merged.appearance : 'system',
           exportDirectoryUri: typeof merged.exportDirectoryUri === 'string' ? merged.exportDirectoryUri : DEFAULT_SETTINGS.exportDirectoryUri,
           usageStartDate: typeof merged.usageStartDate === 'string' && DATE_KEY_PATTERN.test(merged.usageStartDate) ? merged.usageStartDate : DEFAULT_SETTINGS.usageStartDate,

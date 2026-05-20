@@ -24,22 +24,22 @@ export const LightColors = {
 };
 
 export const DarkColors = {
-  background: '#1F1A17',
-  surface: '#29231F',
-  surfaceMuted: '#352E29',
-  primarySoft: '#3A2A24',
-  primaryBorder: '#674434',
-  primary: '#E18A68',
-  primaryPressed: '#C86D4B',
-  text: '#F4EFE8',
-  textSecondary: '#B9AEA5',
-  border: '#463D36',
-  success: '#A3B894',
-  successSoft: '#2E392D',
-  danger: '#F08A72',
-  dangerSoft: '#3B2923',
-  trackBackground: '#3B342F',
-  backdrop: 'rgba(10, 8, 7, 0.56)',
+  background: '#1F1F1C',
+  surface: '#2D2D2A',
+  surfaceMuted: '#252522',
+  primarySoft: '#3A312B',
+  primaryBorder: '#5F4639',
+  primary: '#D97757',
+  primaryPressed: '#B96649',
+  text: '#F3EFE4',
+  textSecondary: '#A9A59C',
+  border: '#44413A',
+  success: '#A8B894',
+  successSoft: '#30362B',
+  danger: '#E07A61',
+  dangerSoft: '#3A2B25',
+  trackBackground: '#383631',
+  backdrop: 'rgba(12, 12, 10, 0.62)',
 };
 
 export type ThemeColors = typeof LightColors;
@@ -89,8 +89,10 @@ export const Theme = {
     xxl: 48,
   },
   fonts: {
-    regular: 'DMSans_400Regular',
-    medium: 'DMSans_500Medium',
+    regular: 'AnthropicSans_400Regular',
+    medium: 'AnthropicSans_500Medium',
+    display: 'NotoSerifSC_400Regular',
+    displayEn: 'AnthropicSerif_600SemiBold',
   },
 };
 

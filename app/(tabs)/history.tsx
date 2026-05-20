@@ -22,6 +22,7 @@ import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import { AppText as Text } from '@/components/fixed-scale-text';
+import { PageHeader } from '@/components/PageHeader';
 import {
   getTodayKey,
   loadLogsForDate,
@@ -32,6 +33,7 @@ import {
   type WaterLog,
   type WaterDayRecord,
 } from '@/utils/storage';
+import { resolveLanguagePreference } from '@/utils/language';
 
 type PeriodMode = 'day' | 'week' | 'month' | 'year';
 const MONTH_PICKER_VALUES = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -617,7 +619,7 @@ export default function HistoryScreen() {
   const colors = useThemeColors();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state } = useWater();
-  const language = state.settings.language;
+  const language = resolveLanguagePreference(state.settings.language);
   const copy = language === 'en'
     ? { title: 'Records', subtitle: 'See the rhythm of how you care for yourself', goal: 'Goal', completion: 'Completion', dailyAverage: 'Daily avg', recordCount: 'Entries', completedDays: 'Days met', emptyTrend: 'Trends will appear after you start recording', recent: 'Records in this period', allDay: 'All day · 00:00-23:59', entries: 'records', emptyHistory: 'No records in this period', previous: 'Previous', next: 'Next', selectPeriod: 'Select period', previousMonth: 'Previous month', nextMonth: 'Next month', confirm: 'Done', markComplete: 'Mark as 100%', markCompleteHint: 'Fill this day to its goal when you forgot to record it' }
     : { title: '记录', subtitle: '看看身体被照顾的节律', goal: '目标', completion: '完成率', dailyAverage: '日均 ml', recordCount: '记录次数', completedDays: '达标天数', emptyTrend: '开始记录后，这里会生成趋势', recent: '当前周期记录', allDay: '全天 · 00:00-23:59', entries: '次记录', emptyHistory: '这个周期还没有记录', previous: '上一段', next: '下一段', selectPeriod: '选择时间', previousMonth: '上个月', nextMonth: '下个月', confirm: '完成', markComplete: '补记为达标', markCompleteHint: '忘记记录时，将这一天补到 100% 完成' };
@@ -934,8 +936,12 @@ export default function HistoryScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.pageTitle}>{copy.title}</Text>
-      <Text style={styles.pageSubtitle}>{copy.subtitle}</Text>
+      <PageHeader
+        title={copy.title}
+        subtitle={copy.subtitle}
+        language={language}
+        style={styles.pageHeader}
+      />
 
       <View style={styles.segmented}>
         {periods.map((periodOption) => {
@@ -1290,18 +1296,7 @@ function createStyles(colors: typeof Theme.colors) {
     paddingHorizontal: 24,
     paddingBottom: 20,
   },
-  pageTitle: {
-    fontSize: Theme.type.pageTitle,
-    fontFamily: Theme.fonts.medium,
-    color: colors.text,
-    letterSpacing: 0.5,
-  },
-  pageSubtitle: {
-    color: colors.textSecondary,
-    fontFamily: Theme.fonts.regular,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
+  pageHeader: {
     marginBottom: 18,
   },
   segmented: {

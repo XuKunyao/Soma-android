@@ -8,32 +8,35 @@
  */
 
 import React from 'react';
-import { AppState, View, StyleSheet } from 'react-native';
-import { AppText as Text } from '@/components/fixed-scale-text';
-import { Theme } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/useAppTheme';
+import { AppState } from 'react-native';
+import { PageHeader } from '@/components/PageHeader';
 import { useWater } from '@/contexts/WaterContext';
-import type { LanguagePreference } from '@/utils/storage';
+import { resolveLanguagePreference } from '@/utils/language';
+import type { ResolvedLanguage } from '@/utils/storage';
 
 /** 根据手机当前小时数返回问候语 */
-function getGreeting(language: LanguagePreference, hour: number): { text: string; subtitle: string } {
+function getGreeting(language: ResolvedLanguage, hour: number): { text: string; subtitle: string } {
   const greetings = language === 'en'
     ? {
       morning: { text: 'Good morning', subtitle: 'A new day can begin gently' },
-      afternoon: { text: 'Good afternoon', subtitle: 'Pause for a sip between busy moments' },
-      evening: { text: 'Good evening', subtitle: 'You have done enough. Take care of yourself' },
+      noon: { text: 'Good midday', subtitle: 'A quiet sip can reset the day' },
+      afternoon: { text: 'Good afternoon', subtitle: 'Pause for a quiet sip' },
+      evening: { text: 'Good evening', subtitle: 'Take care of yourself tonight' },
       night: { text: 'Late night', subtitle: 'Rest soon, and continue tomorrow' },
     }
     : {
       morning: { text: '早上好', subtitle: '新的一天，慢慢开始' },
+      noon: { text: '中午好', subtitle: '给忙碌的中段，留一口水' },
       afternoon: { text: '下午好', subtitle: '忙碌之余，别忘了补充水分' },
       evening: { text: '晚上好', subtitle: '辛苦了，照顾一下自己' },
       night: { text: '夜深了', subtitle: '早点休息，明天再继续' },
     };
 
-  if (hour >= 5 && hour < 12) {
+  if (hour >= 5 && hour < 11) {
     return greetings.morning;
-  } else if (hour >= 12 && hour < 18) {
+  } else if (hour >= 11 && hour < 14) {
+    return greetings.noon;
+  } else if (hour >= 14 && hour < 18) {
     return greetings.afternoon;
   } else if (hour >= 18 && hour < 23) {
     return greetings.evening;
@@ -43,11 +46,10 @@ function getGreeting(language: LanguagePreference, hour: number): { text: string
 }
 
 export function GreetingHeader() {
-  const colors = useThemeColors();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state } = useWater();
   const [currentHour, setCurrentHour] = React.useState(() => new Date().getHours());
-  const { text, subtitle } = getGreeting(state.settings.language, currentHour);
+  const language = resolveLanguagePreference(state.settings.language);
+  const { text, subtitle } = getGreeting(language, currentHour);
 
   React.useEffect(() => {
     const syncHour = () => {
@@ -68,31 +70,6 @@ export function GreetingHeader() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.greeting}>{text}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-    </View>
+    <PageHeader title={text} subtitle={subtitle} language={language} />
   );
-}
-
-function createStyles(colors: typeof Theme.colors) {
-  return StyleSheet.create({
-  container: {
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  greeting: {
-    fontSize: Theme.type.pageTitle,
-    fontFamily: Theme.fonts.medium,
-    color: colors.text,
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontFamily: Theme.fonts.regular,
-    color: colors.textSecondary,
-    marginTop: 6,
-    lineHeight: 22,
-  },
-  });
 }

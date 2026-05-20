@@ -2,7 +2,7 @@
  * 根布局 — 应用的最外层结构
  *
  * 职责：
- * 1. 加载 DM Sans 字体
+ * 1. 加载品牌字体
  * 2. 在字体加载完成前保持启动屏
  * 3. 包裹 WaterProvider，让全局状态在所有页面可用
  * 4. 配置通知行为
@@ -13,7 +13,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
-import { useFonts, DMSans_400Regular, DMSans_500Medium } from '@expo-google-fonts/dm-sans';
+import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -37,10 +37,12 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  // 加载 DM Sans 字体
+  // 加载 Claude 风格字体：UI 使用 Anthropic Sans，英文标题使用 Anthropic Serif，中文标题使用思源宋体
   const [fontsLoaded] = useFonts({
-    DMSans_400Regular,
-    DMSans_500Medium,
+    AnthropicSans_400Regular: require('../assets/fonts/AnthropicSans-Regular.ttf'),
+    AnthropicSans_500Medium: require('../assets/fonts/AnthropicSans-Medium.ttf'),
+    AnthropicSerif_600SemiBold: require('../assets/fonts/AnthropicSerif-Regular.ttf'),
+    NotoSerifSC_400Regular: require('../assets/fonts/NotoSerifSC-VF.otf'),
   });
 
   useEffect(() => {

@@ -7,6 +7,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
+import { resolveLanguagePreference } from '@/utils/language';
 
 function TabIcon({
   name,
@@ -30,7 +31,7 @@ export default function TabLayout() {
   const colors = useThemeColors();
   const { state } = useWater();
   const insets = useSafeAreaInsets();
-  const isEnglish = state.settings.language === 'en';
+  const isEnglish = resolveLanguagePreference(state.settings.language) === 'en';
   const androidBottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 18) : insets.bottom;
 
   return (
@@ -52,6 +53,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontFamily: Theme.fonts.regular,
           fontSize: 12,
+          marginTop: 2,
         },
       }}
     >

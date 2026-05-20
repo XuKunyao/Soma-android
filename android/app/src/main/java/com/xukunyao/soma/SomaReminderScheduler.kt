@@ -288,16 +288,6 @@ object SomaReminderScheduler {
       .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
       .setVibrate(longArrayOf(0, 180, 120, 180))
       .setContentIntent(contentIntent)
-      .addAction(
-        context.applicationInfo.icon,
-        if (language == "en") "In 15 min" else "15 分钟后",
-        actionPendingIntent(context, ACTION_SNOOZE, SNOOZE_REQUEST_CODE)
-      )
-      .addAction(
-        context.applicationInfo.icon,
-        if (language == "en") "Pause today" else "今天暂停",
-        actionPendingIntent(context, ACTION_PAUSE_TODAY, PAUSE_TODAY_REQUEST_CODE)
-      )
       .build()
 
     NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)

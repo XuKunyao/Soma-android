@@ -24,6 +24,7 @@ import Animated, {
 import { Theme } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
+import { resolveLanguagePreference } from '@/utils/language';
 
 interface WaterLogItemProps {
   amount: number;       // 饮水量 (ml)
@@ -51,7 +52,7 @@ function DeleteAction({
   const colors = useThemeColors();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const { state } = useWater();
-  const deleteLabel = state.settings.language === 'en' ? 'Delete' : '删除';
+  const deleteLabel = resolveLanguagePreference(state.settings.language) === 'en' ? 'Delete' : '删除';
   const actionStyle = useAnimatedStyle(() => {
     const clampedProgress = Math.min(progress.value, 1.08);
 

@@ -27,8 +27,11 @@ import {
   Alert,
   Keyboard,
   Linking,
+  type StyleProp,
+  type ViewStyle,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { File as ExpoFile } from 'expo-file-system';
@@ -48,10 +51,12 @@ import Animated, {
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Theme } from '@/constants/theme';
-import { useThemeColors } from '@/hooks/useAppTheme';
+import { useAppTheme, useThemeColors } from '@/hooks/useAppTheme';
 import { useWater } from '@/contexts/WaterContext';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/fixed-scale-text';
+import { PageHeader } from '@/components/PageHeader';
 import { buildWaterDataExport, importWaterDataExport } from '@/utils/storage';
+import { resolveLanguagePreference } from '@/utils/language';
 
 function DeleteTimeAction({
   progress,
@@ -65,7 +70,7 @@ function DeleteTimeAction({
   const layout = React.useMemo(() => createSettingsLayout(width), [width]);
   const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
   const { state } = useWater();
-  const deleteLabel = state.settings.language === 'en' ? 'Delete' : '删除';
+  const deleteLabel = resolveLanguagePreference(state.settings.language) === 'en' ? 'Delete' : '删除';
 
   const actionStyle = useAnimatedStyle(() => {
     const clampedProgress = Math.min(progress.value, 1.08);
@@ -141,8 +146,9 @@ const PICKER_ITEM_HEIGHT = 44;
 const PICKER_VISIBLE_ITEMS = 5;
 
 const LANGUAGE_OPTIONS = [
-  { label: '中文', value: 'zh' as const },
-  { label: 'English', value: 'en' as const },
+  { label: '跟随系统', labelEn: 'System', value: 'system' as const },
+  { label: '中文', labelEn: 'Chinese', value: 'zh' as const },
+  { label: 'English', labelEn: 'English', value: 'en' as const },
 ];
 
 const APPEARANCE_OPTIONS = {
@@ -159,10 +165,24 @@ const APPEARANCE_OPTIONS = {
 };
 
 /** 可选的每日目标 */
-const DAILY_GOALS = [1000, 1500, 2000, 2500, 3000, 3500, 4000];
+const DAILY_GOALS = [1400, 1500, 1600, 1700, 1800, 1900, 2000];
 const BASE_WEIGHT_SLOPE = 14;
-const HYDRATION_GOAL_IMAGE = require('../../assets/images/hydration-goal-illustration.png');
-const AUTHOR_CUP_IMAGE = require('../../assets/images/author-cup.png');
+const AUTHOR_CUP_IMAGE = require('../../assets/images/author-baozi.png');
+const AUTHOR_CUP_IMAGE_DARK = require('../../assets/images/author-baozi-dark.png');
+const SETTINGS_ILLUSTRATION_IMAGE = require('../../assets/images/settings-illustration.png');
+const SETTINGS_ILLUSTRATION_IMAGE_DARK = require('../../assets/images/settings-illustration-dark.png');
+const GOAL_RESULT_IMAGES = {
+  low: require('../../assets/images/goal-result-low.png'),
+  midLow: require('../../assets/images/goal-result-mid-low.png'),
+  midHigh: require('../../assets/images/goal-result-mid-high.png'),
+  high: require('../../assets/images/goal-result-high.png'),
+};
+const GOAL_RESULT_IMAGES_DARK = {
+  low: require('../../assets/images/goal-result-low-dark.png'),
+  midLow: require('../../assets/images/goal-result-mid-low-dark.png'),
+  midHigh: require('../../assets/images/goal-result-mid-high-dark.png'),
+  high: require('../../assets/images/goal-result-high-dark.png'),
+};
 const MODAL_ENTER_TIMING = { duration: 360, easing: Easing.out(Easing.cubic) };
 const MODAL_EXIT_TIMING = { duration: 220, easing: Easing.in(Easing.cubic) };
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -263,6 +283,7 @@ function createSettingsLayout(width: number) {
     compact,
     s,
     pagePadding: compact ? 18 : 24,
+    heroInset: 24 - (compact ? 18 : 24),
     cardPadding: s(20),
     cardGap: s(16),
     sectionGap: s(14),
@@ -274,7 +295,7 @@ function createSettingsLayout(width: number) {
     chipPaddingVertical: s(10),
     chipGap: s(8),
     chipText: s(14),
-    pageTitle: s(28),
+    settingsHeroImage: s(compact ? 88 : 98),
     sectionTitle: s(17),
     body: s(14),
     caption: s(12),
@@ -327,6 +348,14 @@ function deriveIntervalInput(minutes: number): { value: string; unit: IntervalUn
   }
 
   return { value: minutes > 0 ? String(minutes) : '', unit: 'min' };
+}
+
+function formatGoalOptionLabel(goal: number, isPreset: boolean, isEnglish: boolean): string {
+  if (isPreset) {
+    return `${goal} ml`;
+  }
+
+  return isEnglish ? `Custom ${goal} ml` : `自定义 ${goal} ml`;
 }
 
 function formatStoragePath(uri: string): string {
@@ -737,10 +766,12 @@ function Chip({
   label,
   selected,
   onPress,
+  style,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -753,9 +784,13 @@ function Chip({
       style={({ pressed }) => [
         chipStyles.chip,
         selected && chipStyles.chipSelected,
+        style,
       ]}
     >
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.86}
         style={[
           chipStyles.chipText,
           selected && chipStyles.chipTextSelected,
@@ -942,7 +977,7 @@ const CustomSwitch: React.FC<CustomSwitchProps> = ({ value, onValueChange, track
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const colors = useThemeColors();
+  const { colors, isDark } = useAppTheme();
   const { width } = useWindowDimensions();
   const layout = React.useMemo(() => createSettingsLayout(width), [width]);
   const styles = React.useMemo(() => createStyles(colors, layout), [colors, layout]);
@@ -1010,7 +1045,7 @@ export default function SettingsScreen() {
     [updateReleaseUrl],
   );
   const androidPackageName = Constants.expoConfig?.android?.package ?? 'com.xukunyao.soma';
-  const language = settings.language;
+  const language = resolveLanguagePreference(settings.language);
   const isEnglish = language === 'en';
   const aboutAuthorBody = [
     '你好，我是包子小方同学，',
@@ -1215,81 +1250,82 @@ export default function SettingsScreen() {
   const copy = isEnglish
     ? {
       pageTitle: 'Settings',
+      settingsHeroDescription: 'Daily goals stay clear\nData stays in order',
       dailyGoalTitle: 'Daily goal',
       customGoal: 'Custom goal',
       dailyGoalDescription: 'Estimate a goal from body weight and activity',
       presetGoalTitle: 'Common goals',
       selectedGoalSummary: '{goal} ml per day',
       cupSizeTitle: 'Glass size',
-      cupSizeDescription: 'Amount recorded when you tap “Drank a glass”.',
+      cupSizeDescription: 'Amount recorded when you tap “Drank a glass”',
       selectedCupSummary: '{size} ml each time',
       customCup: 'Custom:',
       apply: 'Apply',
       reminderTitle: 'Reminder notifications',
-      reminderDescription: 'Receive quiet hydration reminders.',
+      reminderDescription: 'Receive quiet hydration reminders',
       reminderSummaryOff: 'Off',
       reminderSummaryExact: '{count} exact times',
       reminderSummaryInterval: 'Every {interval}',
       reminderSummaryQuiet: 'Quiet {start}-{end}',
       reminderSummaryNoQuiet: 'No quiet hours',
       quietTitle: 'Quiet hours:',
-      quietDescription: 'No hydration reminders during this time.',
+      quietDescription: 'No hydration reminders during this time',
       reminderDetailTitle: 'Reminder settings',
-      reminderDetailDescription: 'Exact times come first; otherwise Soma follows the interval.',
-      reminderEntryDescription: 'Choose exact times, interval, and quiet hours.',
+      reminderDetailDescription: 'Exact times come first; otherwise Soma follows the interval',
+      reminderEntryDescription: 'Choose exact times, interval, and quiet hours',
       customIntervalTitle: 'Custom Interval:',
-      customIntervalDescription: 'Defaults to the selected preset interval.',
+      customIntervalDescription: 'Defaults to the selected preset interval',
       customIntervalPlaceholder: 'Interval',
-      exactTimeTitle: 'Exact reminder times',
-      exactTimeDescription: 'Daily times for hydration reminders.',
-      exactTimeEmpty: 'No exact times yet.',
+      exactTimeTitle: 'Exact times',
+      exactTimeDescription: 'Daily reminder times',
+      exactTimeEmpty: 'No exact times yet',
       addTime: 'Add time',
       reminderSettingsSave: 'Save settings',
-      intervalInvalid: 'Use 1-720 minutes.',
+      intervalInvalid: 'Use 1-720 minutes',
       quietStart: 'From',
       quietEnd: 'To',
       quietSave: 'Save',
-      quietInvalid: 'Use 24-hour time, e.g. 22:00.',
+      quietInvalid: 'Use 24-hour time, e.g. 22:00',
       quietSummary: 'Paused from {start} to {end}',
       selectTime: 'Select time',
       confirmTime: 'Done',
       minuteUnit: 'min',
       hourUnit: 'hour',
       systemTitle: 'System settings',
-      systemDescription: 'Language, appearance, backups, and app information.',
-      systemEntryDescription: 'Language, appearance, backup, etc.',
+      systemDescription: 'Language, appearance, backups, and app information',
+      systemEntryDescription: 'Language, appearance, backup, etc',
       preferenceTitle: 'Language & appearance',
-      preferenceDescription: 'Display language and visual theme.',
+      preferenceDescription: 'Display language and visual theme',
       recordsSectionTitle: 'Record statistics',
-      recordsSectionDescription: 'Start date and history calculation rules.',
+      recordsSectionDescription: 'Start date and history rules',
       permissionTitle: 'Notifications & background',
-      permissionDescription: 'Notification, background activity, and startup guides.',
+      permissionDescription: 'Notification and background guides',
       dataSectionTitle: 'Data & backups',
-      dataSectionDescription: 'Backup location, export, and restore tools.',
-      aboutSectionDescription: 'Version, author, and app information.',
+      dataSectionDescription: 'Backup, export, and restore tools',
+      aboutSectionDescription: 'Version, author, and app information',
       permissionGuideTitle: 'Notifications & background',
       permissionNotificationTitle: 'Notification permission',
-      permissionNotificationPath: 'App management -> Soma -> Notifications',
-      permissionNotificationSummary: 'Keep notifications, banner, lock screen, and status bar on',
+      permissionNotificationPath: 'Soma -> Notifications',
+      permissionNotificationSummary: 'Keep lock-screen alerts on',
       permissionBatteryTitle: 'Battery activity',
-      permissionBatteryPath: 'Battery -> App battery management',
-      permissionBatterySummary: 'Allow background activity and turn off battery optimization',
+      permissionBatteryPath: 'Battery -> Soma',
+      permissionBatterySummary: 'Allow background activity for Soma',
       permissionAutostartTitle: 'Auto-start',
       permissionAutostartPath: 'Auto-start management',
-      permissionAutostartSummary: 'Allow Soma to auto-start in background, device brands may vary',
+      permissionAutostartSummary: 'Allow Soma to start in the background',
       openNotificationSettings: 'Settings',
       openAppSettings: 'Settings',
-      systemSettingsUnavailable: 'Unable to open system settings right now. Please open them manually.',
+      systemSettingsUnavailable: 'Unable to open system settings right now',
       language: 'Language',
       appearance: 'Appearance',
       dataTitle: 'Data storage',
-      dataDescription: 'Records are stored inside Soma. Choose a backup location and export a local JSON file.',
+      dataDescription: 'Records are stored inside Soma. Choose a backup location and export a local JSON file',
       usageStartDateTitle: 'Start date',
-      usageStartDateDescription: 'Records before this date are not counted as missing goals.',
+      usageStartDateDescription: 'Records before this date are not counted as missing goals',
       usageStartDatePlaceholder: 'YYYY-MM-DD',
       usageStartDateToday: 'Today',
       usageStartDateClear: 'Clear',
-      usageStartDateInvalid: 'Use YYYY-MM-DD.',
+      usageStartDateInvalid: 'Use YYYY-MM-DD',
       usageStartDateSelect: 'Select date',
       previousMonth: 'Previous month',
       nextMonth: 'Next month',
@@ -1299,20 +1335,20 @@ export default function SettingsScreen() {
       chooseExportPath: 'Choose location',
       exportData: 'Export data',
       importData: 'Import data',
-      exportReady: 'Data exported successfully.',
+      exportReady: 'Data exported successfully',
       exportSuccessTitle: 'Export complete',
-      exportSuccessDescription: 'Your Soma backup has been saved here.',
+      exportSuccessDescription: 'Your Soma backup has been saved here',
       exportSuccessPath: 'Export address',
-      importReady: 'Data imported successfully.',
-      exportNeedsPath: 'Choose a backup location first.',
-      importNeedsPath: 'Choose a backup file first.',
-      exportCanceled: 'No location was selected.',
-      importCanceled: 'No backup file was selected.',
-      exportUnavailable: 'Folder selection is only available on Android. Data was saved to the app document folder.',
-      exportFailed: 'Export failed. Please try again.',
-      importFailed: 'Import failed. Please check the backup file.',
+      importReady: 'Data imported successfully',
+      exportNeedsPath: 'Choose a backup location first',
+      importNeedsPath: 'Choose a backup file first',
+      exportCanceled: 'No location was selected',
+      importCanceled: 'No backup file was selected',
+      exportUnavailable: 'Folder selection is only available on Android. Data was saved to the app document folder',
+      exportFailed: 'Export failed. Please try again',
+      importFailed: 'Import failed. Please check the backup file',
       importConfirmTitle: 'Import backup?',
-      importConfirmBody: 'This will restore records and settings from the selected Soma JSON backup file.',
+      importConfirmBody: 'This will restore records and settings from the selected Soma JSON backup file',
       importConfirmAction: 'Import',
       cancel: 'Cancel',
       aboutTitle: 'About Soma',
@@ -1323,20 +1359,20 @@ export default function SettingsScreen() {
       contact: 'Contact',
       version: 'Version',
       checkUpdate: 'Check for updates',
-      checkingUpdate: 'Checking...',
+      checkingUpdate: 'Checking',
       updateTitle: 'App update',
-      updateNeedsConfig: 'No update source is configured yet.',
-      updateInvalid: 'The update information is not available right now.',
-      updateNetworkFailed: 'Unable to check for updates. Please try again later.',
+      updateNeedsConfig: 'No update source is configured yet',
+      updateInvalid: 'The update information is not available right now',
+      updateNetworkFailed: 'Unable to check for updates. Please try again later',
       updateGithubAddress: 'GitHub Releases',
-      updateAvailable: 'A new version is available: v{version}.',
-      updateUpToDate: 'You are already on the latest version.',
+      updateAvailable: 'A new version is available: v{version}',
+      updateUpToDate: 'You are already on the latest version',
       updateOpen: 'Open',
       updateLater: 'Later',
       updateConfirm: 'Done',
       currentName: '包子小方同学',
       modalTitle: 'Custom hydration goal',
-      modalDescription: 'Estimate a water goal for today’s records and reminders.',
+      modalDescription: 'Estimate a water goal for today’s records and reminders',
       close: 'Close',
       bodyData: 'Body data',
       weight: 'Weight',
@@ -1344,7 +1380,7 @@ export default function SettingsScreen() {
       activity: 'Daily activity',
       diet: 'Diet pattern',
       result: 'Result:',
-      resultDescription: 'Recommended daily water goal from your data',
+      resultDescription: 'Suggested daily goal',
       unitPerDay: 'ml / day',
       missingWeight: 'Enter weight to see the result',
       applyGoal: 'Apply this goal',
@@ -1353,6 +1389,7 @@ export default function SettingsScreen() {
     }
     : {
       pageTitle: '设置',
+      settingsHeroDescription: '设置好每天的小目标\n也收好长期的小习惯',
       dailyGoalTitle: '每日饮水目标',
       customGoal: '自定义目标',
       dailyGoalDescription: '根据个人体重和活动量估算目标',
@@ -1608,6 +1645,14 @@ export default function SettingsScreen() {
       ),
     )
     : 0;
+  const goalResultImages = isDark ? GOAL_RESULT_IMAGES_DARK : GOAL_RESULT_IMAGES;
+  const goalResultImage = estimatedDailyGoal < 1600
+    ? goalResultImages.low
+    : estimatedDailyGoal < 1800
+      ? goalResultImages.midLow
+      : estimatedDailyGoal < 2000
+        ? goalResultImages.midHigh
+        : goalResultImages.high;
   const cupCountMin = estimatedDailyGoal > 0 ? Math.max(1, Math.floor(estimatedDailyGoal / 250)) : 0;
   const cupCountMax = estimatedDailyGoal > 0 ? Math.max(cupCountMin, Math.ceil(estimatedDailyGoal / 250)) : 0;
   const cupEstimateText = cupCountMin === cupCountMax
@@ -2083,7 +2128,20 @@ export default function SettingsScreen() {
       keyboardDismissMode="on-drag"
     >
       {/* 页面标题 */}
-      <Text style={styles.pageTitle}>{copy.pageTitle}</Text>
+      <View style={styles.settingsHero}>
+        <PageHeader
+          title={copy.pageTitle}
+          subtitle={copy.settingsHeroDescription}
+          language={language}
+          style={styles.settingsHeroHeader}
+        >
+          <Image
+            source={isDark ? SETTINGS_ILLUSTRATION_IMAGE_DARK : SETTINGS_ILLUSTRATION_IMAGE}
+            style={styles.settingsHeroImage}
+            resizeMode="contain"
+          />
+        </PageHeader>
+      </View>
 
       <SoftPressable
         onPress={openGoalModal}
@@ -2374,15 +2432,23 @@ export default function SettingsScreen() {
                   <Feather name="target" size={16} color={colors.textSecondary} />
                   <Text style={styles.profileTitle}>{copy.presetGoalTitle}</Text>
                 </View>
-                <View style={styles.chipGroup}>
-                  {dailyGoalOptions.map((goal) => (
-                    <Chip
-                      key={goal}
-                      label={DAILY_GOALS.includes(goal) ? `${goal} ml` : (isEnglish ? `Custom ${goal}ml` : `自定义 ${goal}ml`)}
-                      selected={settings.dailyGoal === goal}
-                      onPress={() => updateSettings({ dailyGoal: goal })}
-                    />
-                  ))}
+                <View style={styles.goalPresetGrid}>
+                  {dailyGoalOptions.map((goal) => {
+                    const isPresetGoal = DAILY_GOALS.includes(goal);
+
+                    return (
+                      <Chip
+                        key={goal}
+                        label={formatGoalOptionLabel(goal, isPresetGoal, isEnglish)}
+                        selected={settings.dailyGoal === goal}
+                        onPress={() => updateSettings({ dailyGoal: goal })}
+                        style={[
+                          styles.goalPresetChip,
+                          !isPresetGoal && styles.goalPresetCustomChip,
+                        ]}
+                      />
+                    );
+                  })}
                 </View>
               </View>
 
@@ -2478,7 +2544,12 @@ export default function SettingsScreen() {
                     </View>
                     <View style={styles.cupEstimateRow}>
                       <Feather name="droplet" size={16} color={colors.textSecondary} />
-                      <Text style={styles.cupEstimateText}>
+                      <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.86}
+                        style={styles.cupEstimateText}
+                      >
                         {isWeightValid ? cupEstimateText : copy.missingWeight}
                       </Text>
                     </View>
@@ -2486,7 +2557,7 @@ export default function SettingsScreen() {
                   <View style={styles.resultIllustration}>
                     <View style={styles.resultVisualSlot}>
                       <Image
-                        source={HYDRATION_GOAL_IMAGE}
+                        source={goalResultImage}
                         style={styles.resultImage}
                         resizeMode="contain"
                       />
@@ -3098,7 +3169,7 @@ export default function SettingsScreen() {
                       {LANGUAGE_OPTIONS.map((option) => (
                         <Chip
                           key={option.value}
-                          label={option.label}
+                          label={isEnglish ? option.labelEn : option.label}
                           selected={settings.language === option.value}
                           onPress={() => updateSettings({ language: option.value })}
                         />
@@ -3233,7 +3304,7 @@ export default function SettingsScreen() {
                             </SoftPressable>
                           </View>
                           <Text style={styles.permissionGuidePath}>{copy.permissionNotificationPath}</Text>
-                          <Text style={styles.permissionGuideSummary} numberOfLines={1}>{copy.permissionNotificationSummary}</Text>
+                          <Text style={styles.permissionGuideSummary} numberOfLines={2}>{copy.permissionNotificationSummary}</Text>
                         </View>
                       </View>
 
@@ -3258,7 +3329,7 @@ export default function SettingsScreen() {
                             </SoftPressable>
                           </View>
                           <Text style={styles.permissionGuidePath}>{copy.permissionBatteryPath}</Text>
-                          <Text style={styles.permissionGuideSummary} numberOfLines={1}>{copy.permissionBatterySummary}</Text>
+                          <Text style={styles.permissionGuideSummary} numberOfLines={2}>{copy.permissionBatterySummary}</Text>
                         </View>
                       </View>
 
@@ -3273,7 +3344,7 @@ export default function SettingsScreen() {
                             <Text style={styles.permissionGuideItemTitle}>{copy.permissionAutostartTitle}</Text>
                           </View>
                           <Text style={styles.permissionGuidePath}>{copy.permissionAutostartPath}</Text>
-                          <Text style={styles.permissionGuideSummary} numberOfLines={1}>{copy.permissionAutostartSummary}</Text>
+                          <Text style={styles.permissionGuideSummary} numberOfLines={2}>{copy.permissionAutostartSummary}</Text>
                         </View>
                       </View>
                     </View>
@@ -3355,7 +3426,7 @@ export default function SettingsScreen() {
                     <Text style={styles.aboutAuthorTitle}>{copy.aboutAuthorTitle}</Text>
                     <View pointerEvents="none" style={styles.aboutAuthorImageWrap}>
                       <Image
-                        source={AUTHOR_CUP_IMAGE}
+                        source={isDark ? AUTHOR_CUP_IMAGE_DARK : AUTHOR_CUP_IMAGE}
                         style={styles.aboutAuthorImage}
                         resizeMode="contain"
                         accessibilityIgnoresInvertColors
@@ -3531,12 +3602,23 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingHorizontal: layout.pagePadding,
     paddingBottom: layout.s(20),
   },
-  pageTitle: {
-    fontSize: layout.pageTitle,
-    fontFamily: Theme.fonts.medium,
-    color: colors.text,
-    marginBottom: layout.s(24),
-    letterSpacing: 0.5,
+  settingsHero: {
+    minHeight: layout.s(96),
+    marginBottom: layout.s(10),
+    marginLeft: layout.heroInset,
+  },
+  settingsHeroHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: layout.s(12),
+  },
+  settingsHeroImage: {
+    width: layout.settingsHeroImage,
+    height: layout.settingsHeroImage,
+    flexShrink: 0,
+    marginRight: layout.s(4),
+    marginTop: layout.s(2),
   },
   card: {
     backgroundColor: colors.surface,
@@ -4039,6 +4121,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   customControl: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
   reminderControl: {
@@ -4124,6 +4207,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     minHeight: layout.s(42),
     paddingHorizontal: layout.s(16),
     justifyContent: 'center',
+    flexShrink: 0,
   },
   saveButtonPressed: {
     backgroundColor: colors.primaryPressed,
@@ -4740,8 +4824,8 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     minWidth: 0,
   },
   aboutAuthorBody: {
-    color: colors.textSecondary,
-    fontFamily: Theme.fonts.regular,
+    color: colors.text,
+    fontFamily: Theme.fonts.display,
     fontSize: 14,
     lineHeight: 23,
   },
@@ -4832,6 +4916,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   modalHeaderCopy: {
     flex: 1,
+    minWidth: 0,
   },
   modalTitle: {
     color: colors.text,
@@ -4849,6 +4934,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   closeButton: {
     width: layout.s(36),
     height: layout.s(36),
+    flexShrink: 0,
     borderRadius: Theme.radius.full,
     backgroundColor: colors.surface,
     alignItems: 'center',
@@ -5040,6 +5126,22 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   modalPresetCard: {
     marginBottom: 0,
+  },
+  goalPresetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: layout.s(8),
+    rowGap: layout.s(8),
+  },
+  goalPresetChip: {
+    width: layout.s(88),
+    minWidth: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    paddingHorizontal: layout.s(4),
+  },
+  goalPresetCustomChip: {
+    width: layout.s(184),
   },
   timePickerCloseButton: {
     backgroundColor: colors.surfaceMuted,
@@ -5273,6 +5375,8 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     marginTop: layout.s(10),
   },
   cupEstimateText: {
+    flex: 1,
+    minWidth: 0,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
