@@ -12,51 +12,52 @@
  * - 温暖的描述文字解释每个设置的含义
  */
 
-import React from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-  Pressable,
-  Modal,
-  KeyboardAvoidingView,
-  Image,
-  Platform,
-  useWindowDimensions,
-  Alert,
-  Keyboard,
-  Linking,
-  type StyleProp,
-  type ViewStyle,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/fixed-scale-text';
+import { PageHeader } from '@/components/PageHeader';
+import { Theme } from '@/constants/theme';
+import { useWater } from '@/contexts/WaterContext';
+import { useAppTheme, useThemeColors } from '@/hooks/useAppTheme';
+import { resolveLanguagePreference } from '@/utils/language';
+import { buildWaterDataExport, importWaterDataExport } from '@/utils/storage';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { File as ExpoFile } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React from 'react';
+import {
+  Alert,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  type StyleProp,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, {
   Easing,
   Extrapolation,
   interpolate,
+  interpolateColor,
   runOnJS,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  interpolateColor,
-  type SharedValue,
+  withDelay,
 } from 'react-native-reanimated';
-import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Theme } from '@/constants/theme';
-import { useAppTheme, useThemeColors } from '@/hooks/useAppTheme';
-import { useWater } from '@/contexts/WaterContext';
-import { AppText as Text, AppTextInput as TextInput } from '@/components/fixed-scale-text';
-import { PageHeader } from '@/components/PageHeader';
-import { buildWaterDataExport, importWaterDataExport } from '@/utils/storage';
-import { resolveLanguagePreference } from '@/utils/language';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function DeleteTimeAction({
   progress,
@@ -131,6 +132,7 @@ const BASE_INTERVALS = [
   { label: '1 小时', labelEn: '1 hour', value: 60, kind: 'preset' as const },
   { label: '1.5 小时', labelEn: '1.5 hours', value: 90, kind: 'preset' as const },
   { label: '2 小时', labelEn: '2 hours', value: 120, kind: 'preset' as const },
+  { label: '3 小时', labelEn: '3 hours', value: 180, kind: 'preset' as const },
 ];
 
 const DEFAULT_CUSTOM_INTERVAL_OPTION = {
@@ -195,6 +197,14 @@ type SettingsLayout = ReturnType<typeof createSettingsLayout>;
 type IntervalUnit = 'min' | 'hour';
 type TimePickerTarget = 'quietStart' | 'quietEnd' | 'reminderTime';
 type SystemSettingsSection = 'preferences' | 'records' | 'permissions' | 'data' | 'about';
+type ReminderIntervalOption =
+  | (typeof BASE_INTERVALS)[number]
+  | {
+    label: string;
+    labelEn: string;
+    value: number;
+    kind: 'custom' | 'defaultCustom';
+  };
 
 type SoftPressableProps = Omit<React.ComponentProps<typeof Pressable>, 'style'> & {
   style?: PressableStyle;
@@ -767,11 +777,15 @@ function Chip({
   selected,
   onPress,
   style,
+  adjustsFontSizeToFit = true,
+  minimumFontScale = 0.86,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  adjustsFontSizeToFit?: boolean;
+  minimumFontScale?: number;
 }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -789,8 +803,8 @@ function Chip({
     >
       <Text
         numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.86}
+        adjustsFontSizeToFit={adjustsFontSizeToFit}
+        minimumFontScale={minimumFontScale}
         style={[
           chipStyles.chipText,
           selected && chipStyles.chipTextSelected,
@@ -799,6 +813,109 @@ function Chip({
         {label}
       </Text>
     </SoftPressable>
+  );
+}
+
+function ReminderCustomIntervalSlot({
+  label,
+  selected,
+  onPress,
+  style,
+  phase,
+  onExitFinished,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+  phase: 'enter' | 'exit' | 'static';
+  onExitFinished?: () => void;
+}) {
+  const { width } = useWindowDimensions();
+  const layout = React.useMemo(() => createSettingsLayout(width), [width]);
+  const chipHeight = layout.chipPaddingVertical * 2 + layout.s(19) + StyleSheet.hairlineWidth;
+  const slotHeight = chipHeight + layout.s(8);
+  const chipWidth = layout.s(184);
+  const height = useSharedValue(phase === 'enter' ? 0 : slotHeight);
+  const translateY = useSharedValue(phase === 'enter' ? 10 : 0);
+  const exitFinishedRef = React.useRef(false);
+
+  const finishExit = React.useCallback(() => {
+    if (exitFinishedRef.current) {
+      return;
+    }
+    exitFinishedRef.current = true;
+    onExitFinished?.();
+  }, [onExitFinished]);
+
+  React.useEffect(() => {
+    exitFinishedRef.current = false;
+
+    if (phase === 'enter') {
+      height.value = withTiming(slotHeight, {
+        duration: 620,
+        easing: Easing.out(Easing.cubic),
+      });
+      translateY.value = withTiming(0, {
+        duration: 620,
+        easing: Easing.out(Easing.cubic),
+      });
+      return;
+    }
+
+    if (phase === 'exit') {
+      height.value = withDelay(210, withTiming(0, {
+        duration: 380,
+        easing: Easing.out(Easing.cubic),
+      }));
+      translateY.value = withTiming(-8, {
+        duration: 240,
+        easing: Easing.out(Easing.quad),
+      });
+      const exitTimer = setTimeout(finishExit, 610);
+
+      return () => clearTimeout(exitTimer);
+    }
+    height.value = slotHeight;
+  }, [finishExit, height, phase, slotHeight, translateY]);
+
+  const slotAnimatedStyle = useAnimatedStyle(() => ({
+    height: height.value,
+    overflow: 'hidden',
+  }));
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: phase === 'enter'
+      ? interpolate(
+        height.value,
+        [0, slotHeight * 0.42, slotHeight],
+        [0, 0, 1],
+        Extrapolation.CLAMP,
+      )
+      : phase === 'exit'
+        ? interpolate(
+          height.value,
+          [0, slotHeight],
+          [0, 1],
+          Extrapolation.CLAMP,
+        )
+        : 1,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View style={[slotAnimatedStyle, { width: chipWidth }]}>
+      <Animated.View style={[contentAnimatedStyle, { paddingTop: layout.s(8) }]}>
+        <Chip
+          label={label}
+          selected={selected}
+          onPress={onPress}
+          style={style}
+          adjustsFontSizeToFit={false}
+          minimumFontScale={1}
+        />
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -992,6 +1109,9 @@ export default function SettingsScreen() {
   const [customReminderIntervalUnit, setCustomReminderIntervalUnit] = React.useState<IntervalUnit>(
     deriveIntervalInput(settings.reminderInterval).unit,
   );
+  const [isReminderIntervalLayoutAnimating, setIsReminderIntervalLayoutAnimating] = React.useState(false);
+  const [exitingCustomIntervalOption, setExitingCustomIntervalOption] =
+    React.useState<ReminderIntervalOption | null>(null);
   const [editingReminderTime, setEditingReminderTime] = React.useState<string | null>(null);
 
   const closeOpenTimeAction = React.useCallback(() => {
@@ -1021,6 +1141,7 @@ export default function SettingsScreen() {
   const exportSuccessModalProgress = useSharedValue(0);
   const [isUpdateResultModalVisible, setIsUpdateResultModalVisible] = React.useState(false);
   const updateResultModalProgress = useSharedValue(0);
+  const reminderIntervalAnimationTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [exportStatus, setExportStatus] = React.useState('');
   const [isExportActionReady, setIsExportActionReady] = React.useState(false);
   const [lastExportPath, setLastExportPath] = React.useState('');
@@ -1169,6 +1290,21 @@ export default function SettingsScreen() {
       ),
     }],
   }));
+  React.useEffect(() => () => {
+    if (reminderIntervalAnimationTimeoutRef.current) {
+      clearTimeout(reminderIntervalAnimationTimeoutRef.current);
+    }
+  }, []);
+  const startReminderIntervalLayoutAnimation = React.useCallback(() => {
+    if (reminderIntervalAnimationTimeoutRef.current) {
+      clearTimeout(reminderIntervalAnimationTimeoutRef.current);
+    }
+    setIsReminderIntervalLayoutAnimating(true);
+    reminderIntervalAnimationTimeoutRef.current = setTimeout(() => {
+      setIsReminderIntervalLayoutAnimating(false);
+      reminderIntervalAnimationTimeoutRef.current = null;
+    }, 760);
+  }, []);
   const openExactTimeModal = React.useCallback(() => {
     exactTimeModalProgress.value = 0;
     setIsExactTimeModalVisible(true);
@@ -1190,6 +1326,8 @@ export default function SettingsScreen() {
     animateGoalModalOut(hideGoalModal);
   }, [animateGoalModalOut, hideGoalModal]);
   const openCupModal = React.useCallback(() => {
+    setCustomCupSize('');
+    setAppliedCustomCupSize(null);
     cupModalProgress.value = 0;
     setIsCupModalVisible(true);
   }, [cupModalProgress]);
@@ -1200,6 +1338,10 @@ export default function SettingsScreen() {
     animateCupModalOut(hideCupModal);
   }, [animateCupModalOut, hideCupModal]);
   const openReminderModal = React.useCallback(() => {
+    setCustomReminderIntervalInput('');
+    setAppliedCustomInterval(null);
+    setCustomReminderIntervalUnit('min');
+    setExitingCustomIntervalOption(null);
     reminderModalProgress.value = 0;
     setIsReminderModalVisible(true);
   }, [reminderModalProgress]);
@@ -1620,9 +1762,7 @@ export default function SettingsScreen() {
     }
     : DEFAULT_CUSTOM_INTERVAL_OPTION;
   const isIntervalPreset = BASE_INTERVALS.some(i => i.value === settings.reminderInterval) || !settings.reminderEnabled;
-  const reminderIntervalOptions = isIntervalPreset
-    ? BASE_INTERVALS
-    : [...BASE_INTERVALS, customIntervalOption];
+  const visibleCustomIntervalOption = exitingCustomIntervalOption ?? (!isIntervalPreset ? customIntervalOption : null);
   const parsedWeightKg = Number.parseFloat(weightKg);
   const isWeightValid = Number.isFinite(parsedWeightKg) && parsedWeightKg > 0;
   const selectedActivity = ACTIVITY_LEVELS.find((option) => option.value === activityLevel) ?? ACTIVITY_LEVELS[0];
@@ -2035,6 +2175,8 @@ export default function SettingsScreen() {
     if (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) {
       return;
     }
+    setExitingCustomIntervalOption(null);
+    startReminderIntervalLayoutAnimation();
     updateSettings({
       reminderEnabled: true,
       reminderInterval: parsedCustomReminderIntervalMinutes,
@@ -2639,15 +2781,23 @@ export default function SettingsScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <View style={styles.profileCard}>
-                <View style={styles.chipGroup}>
-                  {cupSizeOptions.map((size) => (
-                    <Chip
-                      key={size}
-                      label={CUP_SIZES.includes(size) ? `${size} ml` : (isEnglish ? `Custom ${size}ml` : `自定义 ${size}ml`)}
-                      selected={settings.cupSize === size}
-                      onPress={() => selectPresetCupSize(size)}
-                    />
-                  ))}
+                <View style={styles.cupPresetGrid}>
+                  {cupSizeOptions.map((size) => {
+                    const isPresetCupSize = CUP_SIZES.includes(size);
+
+                    return (
+                      <Chip
+                        key={size}
+                        label={isPresetCupSize ? `${size} ml` : (isEnglish ? `Custom ${size}ml` : `自定义 ${size}ml`)}
+                        selected={settings.cupSize === size}
+                        onPress={() => selectPresetCupSize(size)}
+                        style={[
+                          styles.cupPresetChip,
+                          !isPresetCupSize && styles.cupPresetCustomChip,
+                        ]}
+                      />
+                    );
+                  })}
                 </View>
                 <View style={[styles.customSection, styles.modalCustomSection]}>
                   <View style={styles.customCopy}>
@@ -2735,155 +2885,211 @@ export default function SettingsScreen() {
                 <Feather name="x" size={21} color={colors.textSecondary} />
               </SoftPressable>
             </View>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.reminderSettingsContent}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+            <Animated.View
+              style={styles.reminderSettingsScrollFrame}
             >
-              <View style={[styles.profileCard, styles.reminderSettingsCard]}>
-                <View style={[styles.settingHeader, styles.reminderSettingHeader]}>
-                  <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
-                  <SoftPressable
-                    onPress={openExactTimeModal}
-                    style={({ pressed }) => [
-                      styles.estimatePill,
-                      pressed && styles.estimateButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.estimatePillText}>{copy.exactTimeTitle}</Text>
-                    <Feather name="chevron-right" size={13} color={colors.primary} />
-                  </SoftPressable>
-                </View>
-                <Text style={[styles.cardDescription, styles.reminderCardDescription]}>{copy.reminderDescription}</Text>
-                <View style={styles.chipGroup}>
-                  {reminderIntervalOptions.map((interval) => {
-                    const isSelected = interval.value === 0
-                      ? !settings.reminderEnabled
-                      : settings.reminderEnabled && settings.reminderInterval === interval.value;
-                    return (
-                      <Chip
-                        key={interval.value}
-                        label={isEnglish ? interval.labelEn : interval.label}
-                        selected={isSelected}
-                        onPress={() => {
-                          if (interval.value === 0) {
-                            updateSettings({ reminderEnabled: false, reminderTimes: [] });
-                          } else {
-                            updateSettings({
-                              reminderEnabled: true,
-                              reminderInterval: interval.value,
-                            });
-                          }
-                          setAppliedCustomInterval(null);
-                          setCustomReminderIntervalInput('');
-                        }}
-                      />
-                    );
-                  })}
-                </View>
-
-                <View style={[styles.customSection, styles.modalCustomSection]}>
-                  <View style={styles.customCopy}>
-                    <Text style={styles.customTitle}>{copy.customIntervalTitle}</Text>
-                  </View>
-                  <View style={styles.customControl}>
-                    <View style={styles.customIntervalInputShell}>
-                      <TextInput
-                        value={customReminderIntervalInput}
-                        onChangeText={(value) => setCustomReminderIntervalInput(
-                          value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
-                        )}
-                        keyboardType="number-pad"
-                        maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
-                        placeholder={customReminderIntervalPlaceholder}
-                        placeholderTextColor={colors.textSecondary + '80'}
-                        style={styles.customInput}
-                      />
-                      <SoftPressable
-                        onPress={toggleCustomReminderIntervalUnit}
-                        style={({ pressed }) => [
-                          styles.intervalUnitInline,
-                          pressed && styles.estimateButtonPressed,
-                        ]}
-                      >
-                        <Text style={styles.inputUnit}>
-                          {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
-                        </Text>
-                        <Feather name="chevron-down" size={14} color={colors.textSecondary} style={{ marginTop: 1 }} />
-                      </SoftPressable>
-                    </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={styles.reminderSettingsScroll}
+                contentContainerStyle={styles.reminderSettingsContent}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+              >
+                <Animated.View
+                  style={[styles.profileCard, styles.reminderSettingsCard]}
+                >
+                  <View style={[styles.settingHeader, styles.reminderSettingHeader]}>
+                    <Text style={[styles.cardTitle, styles.headerCardTitle]}>{copy.reminderTitle}</Text>
                     <SoftPressable
-                      onPress={applyCustomInterval}
-                      disabled={!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput}
+                      onPress={openExactTimeModal}
                       style={({ pressed }) => [
-                        styles.saveButton,
-                        pressed && isCustomReminderIntervalValid && hasCustomReminderIntervalInput && styles.saveButtonPressed,
-                        (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonDisabled,
+                        styles.estimatePill,
+                        pressed && styles.estimateButtonPressed,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.saveButtonText,
-                          (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonTextDisabled,
-                        ]}
-                      >
-                        {copy.apply}
-                      </Text>
+                      <Text style={styles.estimatePillText}>{copy.exactTimeTitle}</Text>
+                      <Feather name="chevron-right" size={13} color={colors.primary} />
                     </SoftPressable>
                   </View>
-                  {!isCustomReminderIntervalValid ? (
-                    <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
-                  ) : null}
-                </View>
+                  <Text style={[styles.cardDescription, styles.reminderCardDescription]}>{copy.reminderDescription}</Text>
+                  <Animated.View
+                    style={styles.reminderPresetGrid}
+                  >
+                    {BASE_INTERVALS.map((interval) => {
+                      const isSelected = interval.value === 0
+                        ? !settings.reminderEnabled
+                        : settings.reminderEnabled && settings.reminderInterval === interval.value;
+                      const chipStyle = [
+                        styles.reminderPresetChip,
+                      ];
 
-                <Text style={[styles.inlineSectionTitle, styles.reminderInlineSectionTitle]}>{copy.quietTitle}</Text>
-                <View style={styles.quietInlineRow}>
-                  <View style={styles.quietInlineLeft}>
-                    <View style={styles.quietInlineIcon}>
-                      <Feather name="moon" size={17} color={colors.primary} />
+                      return (
+                        <Animated.View key={interval.value}>
+                          <Chip
+                            label={isEnglish ? interval.labelEn : interval.label}
+                            selected={isSelected}
+                            onPress={() => {
+                              if (!isIntervalPreset) {
+                                setExitingCustomIntervalOption(customIntervalOption);
+                                startReminderIntervalLayoutAnimation();
+                              }
+                              if (interval.value === 0) {
+                                updateSettings({
+                                  reminderEnabled: false,
+                                  reminderTimes: [],
+                                  reminderCustomInterval: 0,
+                                });
+                              } else {
+                                updateSettings({
+                                  reminderEnabled: true,
+                                  reminderInterval: interval.value,
+                                  reminderCustomInterval: 0,
+                                });
+                              }
+                              setAppliedCustomInterval(null);
+                              setCustomReminderIntervalInput('');
+                            }}
+                            style={chipStyle}
+                          />
+                        </Animated.View>
+                      );
+                    })}
+                  </Animated.View>
+                  {visibleCustomIntervalOption ? (
+                    <ReminderCustomIntervalSlot
+                      label={isEnglish ? visibleCustomIntervalOption.labelEn : visibleCustomIntervalOption.label}
+                      selected={
+                        settings.reminderEnabled
+                        && settings.reminderInterval === visibleCustomIntervalOption.value
+                        && !exitingCustomIntervalOption
+                      }
+                      onPress={() => {
+                        if (exitingCustomIntervalOption) {
+                          return;
+                        }
+                        updateSettings({
+                          reminderEnabled: true,
+                          reminderInterval: visibleCustomIntervalOption.value,
+                        });
+                      }}
+                      style={[styles.reminderPresetChip, styles.reminderPresetCustomChip]}
+                      phase={exitingCustomIntervalOption
+                        ? 'exit'
+                        : isReminderIntervalLayoutAnimating
+                          ? 'enter'
+                          : 'static'}
+                      onExitFinished={() => setExitingCustomIntervalOption(null)}
+                    />
+                  ) : null}
+
+                  <Animated.View
+                    style={[styles.customSection, styles.modalCustomSection]}
+                  >
+                    <View style={styles.customCopy}>
+                      <Text style={styles.customTitle}>{copy.customIntervalTitle}</Text>
                     </View>
-                    <View style={styles.quietInlineCopy}>
-                      <View style={styles.quietInlineTimeRow}>
-                        {quietHoursEnabled ? (
-                          <>
-                            <SoftPressable
-                              onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
-                              style={({ pressed }) => [
-                                styles.quietInlineTimeButton,
-                                pressed && styles.estimateButtonPressed,
-                              ]}
-                            >
-                              <Text style={styles.quietInlineTimeText}>{quietStartInput || '22:00'}</Text>
-                            </SoftPressable>
-                            <Text style={styles.quietInlineTimeSep}>-</Text>
-                            <SoftPressable
-                              onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
-                              style={({ pressed }) => [
-                                styles.quietInlineTimeButton,
-                                pressed && styles.estimateButtonPressed,
-                              ]}
-                            >
-                              <Text style={styles.quietInlineTimeText}>{quietEndInput || '08:00'}</Text>
-                            </SoftPressable>
-                          </>
-                        ) : (
-                          <Text style={styles.quietInlineDisabledText}>{isEnglish ? 'Not set' : '未设置'}</Text>
-                        )}
+                    <View style={styles.customControl}>
+                      <View style={styles.customIntervalInputShell}>
+                        <TextInput
+                          value={customReminderIntervalInput}
+                          onChangeText={(value) => setCustomReminderIntervalInput(
+                            value.replace(/\D/g, '').slice(0, customReminderIntervalUnit === 'min' ? 3 : 2),
+                          )}
+                          keyboardType="number-pad"
+                          maxLength={customReminderIntervalUnit === 'min' ? 3 : 2}
+                          placeholder={customReminderIntervalPlaceholder}
+                          placeholderTextColor={colors.textSecondary + '80'}
+                          style={styles.customInput}
+                        />
+                        <SoftPressable
+                          onPress={toggleCustomReminderIntervalUnit}
+                          style={({ pressed }) => [
+                            styles.intervalUnitInline,
+                            pressed && styles.estimateButtonPressed,
+                          ]}
+                        >
+                          <Text style={styles.inputUnit}>
+                            {customReminderIntervalUnit === 'min' ? copy.minuteUnit : copy.hourUnit}
+                          </Text>
+                          <Feather name="chevron-down" size={14} color={colors.textSecondary} style={{ marginTop: 1 }} />
+                        </SoftPressable>
                       </View>
-                      <Text style={styles.quietInlineDesc}>{copy.quietDescription}</Text>
+                      <SoftPressable
+                        onPress={applyCustomInterval}
+                        disabled={!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput}
+                        style={({ pressed }) => [
+                          styles.saveButton,
+                          pressed && isCustomReminderIntervalValid && hasCustomReminderIntervalInput && styles.saveButtonPressed,
+                          (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonDisabled,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.saveButtonText,
+                            (!isCustomReminderIntervalValid || !hasCustomReminderIntervalInput) && styles.saveButtonTextDisabled,
+                          ]}
+                        >
+                          {copy.apply}
+                        </Text>
+                      </SoftPressable>
                     </View>
-                  </View>
-                  <CustomSwitch
-                    value={quietHoursEnabled}
-                    onValueChange={toggleQuietHours}
-                    trackInactive={colors.trackBackground}
-                    trackActive={colors.primary}
-                    thumbColor={colors.surface}
-                  />
-                </View>
-              </View>
-            </ScrollView>
+                    {!isCustomReminderIntervalValid ? (
+                      <Text style={styles.quietInvalidText}>{copy.intervalInvalid}</Text>
+                    ) : null}
+                  </Animated.View>
+
+                  <Animated.View
+                    style={styles.reminderQuietBlock}
+                  >
+                    <Text style={[styles.inlineSectionTitle, styles.reminderInlineSectionTitle]}>{copy.quietTitle}</Text>
+                    <View style={styles.quietInlineRow}>
+                      <View style={styles.quietInlineLeft}>
+                        <View style={styles.quietInlineIcon}>
+                          <Feather name="moon" size={17} color={colors.primary} />
+                        </View>
+                        <View style={styles.quietInlineCopy}>
+                          <View style={styles.quietInlineTimeRow}>
+                            {quietHoursEnabled ? (
+                              <>
+                                <SoftPressable
+                                  onPress={() => openTimePicker('quietStart', quietStartInput || '22:00')}
+                                  style={({ pressed }) => [
+                                    styles.quietInlineTimeButton,
+                                    pressed && styles.estimateButtonPressed,
+                                  ]}
+                                >
+                                  <Text style={styles.quietInlineTimeText}>{quietStartInput || '22:00'}</Text>
+                                </SoftPressable>
+                                <Text style={styles.quietInlineTimeSep}>-</Text>
+                                <SoftPressable
+                                  onPress={() => openTimePicker('quietEnd', quietEndInput || '08:00')}
+                                  style={({ pressed }) => [
+                                    styles.quietInlineTimeButton,
+                                    pressed && styles.estimateButtonPressed,
+                                  ]}
+                                >
+                                  <Text style={styles.quietInlineTimeText}>{quietEndInput || '08:00'}</Text>
+                                </SoftPressable>
+                              </>
+                            ) : (
+                              <Text style={styles.quietInlineDisabledText}>{isEnglish ? 'Not set' : '未设置'}</Text>
+                            )}
+                          </View>
+                          <Text style={styles.quietInlineDesc}>{copy.quietDescription}</Text>
+                        </View>
+                      </View>
+                      <CustomSwitch
+                        value={quietHoursEnabled}
+                        onValueChange={toggleQuietHours}
+                        trackInactive={colors.trackBackground}
+                        trackActive={colors.primary}
+                        thumbColor={colors.surface}
+                      />
+                    </View>
+                  </Animated.View>
+                </Animated.View>
+              </ScrollView>
+            </Animated.View>
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
@@ -4320,6 +4526,14 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingBottom: 4,
     gap: 10,
   },
+  reminderSettingsScrollFrame: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  reminderSettingsScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
   reminderSettingsContent: {
     paddingBottom: layout.s(24),
   },
@@ -4330,6 +4544,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     marginBottom: 0,
   },
   reminderCardDescription: {
+    marginTop: layout.s(4) - layout.s(10),
     marginBottom: 0,
   },
   modalCustomSection: {
@@ -4338,6 +4553,9 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   reminderInlineSectionTitle: {
     marginTop: 0,
     marginBottom: 0,
+  },
+  reminderQuietBlock: {
+    gap: layout.s(10),
   },
   systemModalContent: {
     paddingBottom: 2,
@@ -5141,6 +5359,38 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     paddingHorizontal: layout.s(4),
   },
   goalPresetCustomChip: {
+    width: layout.s(184),
+  },
+  cupPresetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: layout.s(8),
+    rowGap: layout.s(8),
+  },
+  cupPresetChip: {
+    width: layout.s(88),
+    minWidth: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    paddingHorizontal: layout.s(4),
+  },
+  cupPresetCustomChip: {
+    width: layout.s(184),
+  },
+  reminderPresetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: layout.s(8),
+    rowGap: layout.s(8),
+  },
+  reminderPresetChip: {
+    width: layout.s(88),
+    minWidth: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    paddingHorizontal: layout.s(4),
+  },
+  reminderPresetCustomChip: {
     width: layout.s(184),
   },
   timePickerCloseButton: {

@@ -172,6 +172,20 @@ function normalizeLanguagePreference(value: unknown): LanguagePreference {
     : DEFAULT_SETTINGS.language;
 }
 
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0
+    ? Math.round(numericValue)
+    : fallback;
+}
+
+function normalizeNonNegativeNumber(value: unknown, fallback: number): number {
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0
+    ? Math.round(numericValue)
+    : fallback;
+}
+
 function normalizeExportedSettings(value: unknown, currentSettings: WaterSettings): WaterSettings | null {
   if (!isPlainObject(value)) {
     return null;
@@ -181,10 +195,10 @@ function normalizeExportedSettings(value: unknown, currentSettings: WaterSetting
 
   return {
     ...merged,
-    dailyGoal: Number.isFinite(merged.dailyGoal) ? Number(merged.dailyGoal) : DEFAULT_SETTINGS.dailyGoal,
-    cupSize: Number.isFinite(merged.cupSize) ? Number(merged.cupSize) : DEFAULT_SETTINGS.cupSize,
-    reminderInterval: Number.isFinite(merged.reminderInterval) ? Number(merged.reminderInterval) : DEFAULT_SETTINGS.reminderInterval,
-    reminderCustomInterval: Number.isFinite(merged.reminderCustomInterval) ? Number(merged.reminderCustomInterval) : DEFAULT_SETTINGS.reminderCustomInterval,
+    dailyGoal: normalizePositiveNumber(merged.dailyGoal, DEFAULT_SETTINGS.dailyGoal),
+    cupSize: normalizePositiveNumber(merged.cupSize, DEFAULT_SETTINGS.cupSize),
+    reminderInterval: normalizePositiveNumber(merged.reminderInterval, DEFAULT_SETTINGS.reminderInterval),
+    reminderCustomInterval: normalizeNonNegativeNumber(merged.reminderCustomInterval, DEFAULT_SETTINGS.reminderCustomInterval),
     reminderTimes: Array.isArray(merged.reminderTimes) ? merged.reminderTimes.filter((item) => typeof item === 'string') : [],
     reminderDisabledTimes: Array.isArray(merged.reminderDisabledTimes) ? merged.reminderDisabledTimes.filter((item) => typeof item === 'string') : [],
     reminderEnabled: typeof merged.reminderEnabled === 'boolean' ? merged.reminderEnabled : DEFAULT_SETTINGS.reminderEnabled,
@@ -249,10 +263,10 @@ export async function loadSettings(): Promise<WaterSettings> {
         const merged = { ...DEFAULT_SETTINGS, ...parsed };
         return {
           ...merged,
-          dailyGoal: typeof merged.dailyGoal === 'number' && Number.isFinite(merged.dailyGoal) ? merged.dailyGoal : DEFAULT_SETTINGS.dailyGoal,
-          cupSize: typeof merged.cupSize === 'number' && Number.isFinite(merged.cupSize) ? merged.cupSize : DEFAULT_SETTINGS.cupSize,
-          reminderInterval: typeof merged.reminderInterval === 'number' && Number.isFinite(merged.reminderInterval) ? merged.reminderInterval : DEFAULT_SETTINGS.reminderInterval,
-          reminderCustomInterval: typeof merged.reminderCustomInterval === 'number' && Number.isFinite(merged.reminderCustomInterval) ? merged.reminderCustomInterval : DEFAULT_SETTINGS.reminderCustomInterval,
+          dailyGoal: normalizePositiveNumber(merged.dailyGoal, DEFAULT_SETTINGS.dailyGoal),
+          cupSize: normalizePositiveNumber(merged.cupSize, DEFAULT_SETTINGS.cupSize),
+          reminderInterval: normalizePositiveNumber(merged.reminderInterval, DEFAULT_SETTINGS.reminderInterval),
+          reminderCustomInterval: normalizeNonNegativeNumber(merged.reminderCustomInterval, DEFAULT_SETTINGS.reminderCustomInterval),
           reminderTimes: Array.isArray(merged.reminderTimes) ? merged.reminderTimes.filter((item) => typeof item === 'string') : DEFAULT_SETTINGS.reminderTimes,
           reminderDisabledTimes: Array.isArray(merged.reminderDisabledTimes) ? merged.reminderDisabledTimes.filter((item) => typeof item === 'string') : DEFAULT_SETTINGS.reminderDisabledTimes,
           reminderEnabled: typeof merged.reminderEnabled === 'boolean' ? merged.reminderEnabled : DEFAULT_SETTINGS.reminderEnabled,
