@@ -59,7 +59,7 @@ Soma 用轻量记录、本地提醒和柔和的统计视图，帮助你在日常
 
 前往 [GitHub Releases](https://github.com/XuKunyao/Soma-android/releases) 下载最新版 APK。
 
-当前版本：**v1.3.17**
+当前版本：**v1.3.18**
 
 ## Tech Stack
 

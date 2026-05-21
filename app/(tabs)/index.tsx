@@ -332,7 +332,7 @@ export default function HomeScreen() {
 
 function createStyles(colors: typeof Theme.colors, width: number) {
   const compact = width < 380;
-  const pagePadding = compact ? 20 : 24;
+  const pagePadding = 24;
   const homeIllustrationWidth = compact ? 78 : 95;
   const homeIllustrationHeight = compact ? 52 : 62;
   const completionCardSize = Math.min(286, width - pagePadding * 2);
