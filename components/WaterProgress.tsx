@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { AppText as Text } from '@/components/fixed-scale-text';
 import Svg, { Circle } from 'react-native-svg';
 import { Theme } from '@/constants/theme';
@@ -24,13 +24,15 @@ interface WaterProgressProps {
 export function WaterProgress({ current, goal }: WaterProgressProps) {
   const colors = useThemeColors();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
-  const size = 214;                    // 圆环尺寸
+  const { width } = useWindowDimensions();
+  const size = Math.round(Math.min(214, Math.max(188, width - 112))); // 圆环尺寸
   const strokeWidth = 9;              // 线条粗细
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
   // 计算进度（0 到 1，最大为 1）
-  const progress = Math.min(current / goal, 1);
+  const safeGoal = goal > 0 ? goal : 1;
+  const progress = Math.min(current / safeGoal, 1);
   // SVG strokeDashoffset 控制弧线长度
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -41,7 +43,7 @@ export function WaterProgress({ current, goal }: WaterProgressProps) {
 
   // 格式化显示（毫升转升）
   const currentDisplay = (current / 1000).toFixed(1);
-  const goalDisplay = (goal / 1000).toFixed(1);
+  const goalDisplay = (safeGoal / 1000).toFixed(1);
 
   return (
     <View style={styles.container}>

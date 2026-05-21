@@ -24,6 +24,7 @@ import {
   Image,
   Modal,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -70,8 +71,9 @@ const COMPLETION_MESSAGES = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { colors, isDark } = useAppTheme();
-  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const styles = React.useMemo(() => createStyles(colors, width), [colors, width]);
   const { state, addWater, deleteLog } = useWater();
   const { todayLogs, todayTotal, settings, isLoaded } = state;
   const language = resolveLanguagePreference(settings.language);
@@ -224,7 +226,7 @@ export default function HomeScreen() {
           />
         </View>
         {/* 问候语 */}
-        <View onTouchStart={closeOpenLogAction}>
+        <View style={styles.homeHeader} onTouchStart={closeOpenLogAction}>
           <GreetingHeader />
         </View>
 
@@ -328,23 +330,33 @@ export default function HomeScreen() {
   );
 }
 
-function createStyles(colors: typeof Theme.colors) {
+function createStyles(colors: typeof Theme.colors, width: number) {
+  const compact = width < 380;
+  const pagePadding = compact ? 20 : 24;
+  const homeIllustrationWidth = compact ? 78 : 95;
+  const homeIllustrationHeight = compact ? 52 : 62;
+  const completionCardSize = Math.min(286, width - pagePadding * 2);
+
   return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: pagePadding,
     paddingBottom: 20,
     position: 'relative',
+  },
+  homeHeader: {
+    paddingRight: homeIllustrationWidth + (compact ? 8 : 14),
+    minWidth: 0,
   },
   homeCupImageWrap: {
     position: 'absolute',
     top: 8,
-    right: 24,
-    width: 95,
-    height: 62,
+    right: pagePadding,
+    width: homeIllustrationWidth,
+    height: homeIllustrationHeight,
     opacity: 0.96,
   },
   homeCupImage: {
@@ -368,8 +380,8 @@ function createStyles(colors: typeof Theme.colors) {
   },
   completedCard: {
     alignSelf: 'center',
-    width: 286,
-    minHeight: 286,
+    width: completionCardSize,
+    minHeight: completionCardSize,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
@@ -390,6 +402,7 @@ function createStyles(colors: typeof Theme.colors) {
   completedCopy: {
     alignItems: 'center',
     gap: 7,
+    alignSelf: 'stretch',
   },
   completedImageStage: {
     width: 174,

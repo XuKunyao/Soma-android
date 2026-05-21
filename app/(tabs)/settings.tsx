@@ -287,23 +287,33 @@ function createSettingsLayout(width: number) {
   const scale = Math.min(1, Math.max(0.82, width / 410));
   const compact = width < 380;
   const s = (value: number) => Math.round(value * scale);
+  const pagePadding = compact ? 18 : 24;
+  const modalPadding = compact ? 14 : 20;
+  const modalCardPadding = s(18);
+  const profileCardPadding = s(14);
+  const chipGap = s(8);
+  const modalPresetContentWidth = width - (modalPadding * 2) - (modalCardPadding * 2) - (profileCardPadding * 2);
+  const presetChipWidth = Math.max(s(76), Math.floor((modalPresetContentWidth - chipGap * 2) / 3));
+  const presetWideChipWidth = presetChipWidth * 2 + chipGap;
 
   return {
     scale,
     compact,
     s,
-    pagePadding: compact ? 18 : 24,
-    heroInset: 24 - (compact ? 18 : 24),
+    pagePadding,
+    heroInset: 24 - pagePadding,
     cardPadding: s(20),
     cardGap: s(16),
     sectionGap: s(14),
     titleGap: s(5),
     textToControlGap: s(12),
-    modalPadding: compact ? 14 : 20,
-    modalCardPadding: s(18),
+    modalPadding,
+    modalCardPadding,
     chipPaddingHorizontal: s(16),
     chipPaddingVertical: s(10),
-    chipGap: s(8),
+    chipGap,
+    presetChipWidth,
+    presetWideChipWidth,
     chipText: s(14),
     settingsHeroImage: s(compact ? 88 : 98),
     sectionTitle: s(17),
@@ -835,7 +845,7 @@ function ReminderCustomIntervalSlot({
   const layout = React.useMemo(() => createSettingsLayout(width), [width]);
   const chipHeight = layout.chipPaddingVertical * 2 + layout.s(19) + StyleSheet.hairlineWidth;
   const slotHeight = chipHeight + layout.s(8);
-  const chipWidth = layout.s(184);
+  const chipWidth = layout.presetWideChipWidth;
   const height = useSharedValue(phase === 'enter' ? 0 : slotHeight);
   const translateY = useSharedValue(phase === 'enter' ? 10 : 0);
   const exitFinishedRef = React.useRef(false);
@@ -2675,7 +2685,7 @@ export default function SettingsScreen() {
                 <View style={styles.resultCard}>
                   <View style={styles.resultCopy}>
                     <Text style={styles.resultTitle}>{copy.result}</Text>
-                    <Text style={styles.resultDescription} numberOfLines={1}>
+                    <Text style={styles.resultDescription} numberOfLines={2}>
                       {copy.resultDescription}
                     </Text>
                     <View style={styles.resultValueRow}>
@@ -3839,6 +3849,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     shadowRadius: Theme.shadow.card.radius,
   },
   cardTitle: {
+    flexShrink: 1,
     fontSize: layout.sectionTitle,
     fontFamily: Theme.fonts.medium,
     color: colors.text,
@@ -4226,6 +4237,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   quietInlineLeft: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: layout.s(10),
@@ -4233,6 +4245,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   quietInlineIcon: {
     width: 38,
     height: 38,
+    flexShrink: 0,
     borderRadius: Theme.radius.full,
     backgroundColor: colors.primarySoft,
     alignItems: 'center' as const,
@@ -4240,6 +4253,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   quietInlineCopy: {
     flex: 1,
+    minWidth: 0,
     gap: 3,
   },
   quietInlineTimeRow: {
@@ -4278,6 +4292,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   estimatePill: {
     minHeight: 30,
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
@@ -4292,6 +4307,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     color: colors.primary,
     fontFamily: Theme.fonts.medium,
     fontSize: layout.caption,
+    lineHeight: layout.s(16),
   },
   estimateButton: {
     alignSelf: 'flex-start',
@@ -4329,6 +4345,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
+    alignSelf: 'stretch',
   },
   reminderControl: {
     flexDirection: 'row',
@@ -4438,6 +4455,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
   },
   systemEntryLeft: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -4505,6 +4523,7 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    flexShrink: 0,
   },
   systemRow: {
     gap: 10,
@@ -5352,14 +5371,14 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     rowGap: layout.s(8),
   },
   goalPresetChip: {
-    width: layout.s(88),
+    width: layout.presetChipWidth,
     minWidth: 0,
     marginRight: 0,
     marginBottom: 0,
     paddingHorizontal: layout.s(4),
   },
   goalPresetCustomChip: {
-    width: layout.s(184),
+    width: layout.presetWideChipWidth,
   },
   cupPresetGrid: {
     flexDirection: 'row',
@@ -5368,14 +5387,14 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     rowGap: layout.s(8),
   },
   cupPresetChip: {
-    width: layout.s(88),
+    width: layout.presetChipWidth,
     minWidth: 0,
     marginRight: 0,
     marginBottom: 0,
     paddingHorizontal: layout.s(4),
   },
   cupPresetCustomChip: {
-    width: layout.s(184),
+    width: layout.presetWideChipWidth,
   },
   reminderPresetGrid: {
     flexDirection: 'row',
@@ -5384,14 +5403,14 @@ function createStyles(colors: typeof Theme.colors, layout: SettingsLayout) {
     rowGap: layout.s(8),
   },
   reminderPresetChip: {
-    width: layout.s(88),
+    width: layout.presetChipWidth,
     minWidth: 0,
     marginRight: 0,
     marginBottom: 0,
     paddingHorizontal: layout.s(4),
   },
   reminderPresetCustomChip: {
-    width: layout.s(184),
+    width: layout.presetWideChipWidth,
   },
   timePickerCloseButton: {
     backgroundColor: colors.surfaceMuted,

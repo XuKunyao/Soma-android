@@ -1257,7 +1257,7 @@ export default function HistoryScreen() {
         {periodRecords.length > 0 ? (
           periodRecords.map((record) => (
             <View key={record.dateKey} style={styles.dayRow}>
-              <View>
+              <View style={styles.dayCopy}>
                 <Text style={styles.dayTitle}>{formatDayLabel(parseDateKey(record.dateKey))}</Text>
                 <View style={styles.dayMetaRow}>
                   <Text style={styles.dayMeta}>{copy.allDay}</Text>
@@ -1361,10 +1361,12 @@ function createStyles(colors: typeof Theme.colors) {
     paddingHorizontal: 12,
   },
   periodNavigatorText: {
+    flexShrink: 1,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.medium,
     fontSize: 12,
     lineHeight: 16,
+    textAlign: 'center',
   },
   summaryCard: {
     backgroundColor: colors.surface,
@@ -1430,6 +1432,7 @@ function createStyles(colors: typeof Theme.colors) {
     paddingVertical: 5,
   },
   dateBadgeText: {
+    flexShrink: 1,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
@@ -1605,9 +1608,14 @@ function createStyles(colors: typeof Theme.colors) {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  dayCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   dayTitle: {
     color: colors.text,
@@ -1616,6 +1624,7 @@ function createStyles(colors: typeof Theme.colors) {
     lineHeight: 19,
   },
   dayMeta: {
+    flexShrink: 1,
     color: colors.textSecondary,
     fontFamily: Theme.fonts.regular,
     fontSize: 12,
@@ -1635,6 +1644,7 @@ function createStyles(colors: typeof Theme.colors) {
   },
   dayValueGroup: {
     alignItems: 'flex-end',
+    flexShrink: 0,
   },
   dayValue: {
     color: colors.text,

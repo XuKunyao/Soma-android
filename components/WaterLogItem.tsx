@@ -168,16 +168,20 @@ function createStyles(colors: typeof Theme.colors) {
     opacity: 0.6,
   },
   left: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
   amount: {
+    flexShrink: 1,
     fontSize: 16,
     fontFamily: Theme.fonts.medium,
     color: colors.text,
   },
   time: {
+    flexShrink: 0,
     fontSize: 14,
     fontFamily: Theme.fonts.regular,
     color: colors.textSecondary,

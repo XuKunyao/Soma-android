@@ -30,9 +30,23 @@ export function PageHeader({
   return (
     <View style={[styles.container, style]}>
       <View style={styles.copy}>
-        <Text style={[styles.title, titleStyle]}>{title}</Text>
+        <Text
+          style={[styles.title, titleStyle]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.92}
+        >
+          {title}
+        </Text>
         {subtitle ? (
-          <Text style={[styles.subtitle, subtitleStyle]}>{subtitle}</Text>
+          <Text
+            style={[styles.subtitle, subtitleStyle]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.9}
+          >
+            {subtitle}
+          </Text>
         ) : null}
       </View>
       {children}
@@ -59,6 +73,7 @@ function createStyles(colors: typeof Theme.colors, language: ResolvedLanguage) {
       fontWeight: '600',
       lineHeight: 46,
       letterSpacing: 0,
+      includeFontPadding: true,
     },
     subtitle: {
       color: colors.textSecondary,
